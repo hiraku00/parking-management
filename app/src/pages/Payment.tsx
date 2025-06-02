@@ -2,11 +2,49 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import type { ContractWithDetails } from '../lib/supabase';
 import Layout from '../components/Layout';
-import Card from '../components/Card';
-import Input from '../components/Input';
-import Button from '../components/Button';
-import LoadingSpinner from '../components/LoadingSpinner';
 import { format, addMonths, parseISO } from 'date-fns';
+
+// shadcn/ui components
+import { Card, CardTitle, CardContent, CardHeader } from '../components/ui/card';
+import { Input } from '../components/ui/input';
+import { Button } from '../components/ui/button';
+import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '../components/ui/table';
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '../components/ui/select';
+import { Badge } from '../components/ui/badge';
+import { Separator } from '../components/ui/separator';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
+// Labelコンポーネントの代わりに標準のHTMLラベル要素を使用
+
+// Icons
+import { 
+  AlertCircle, CarFront, CheckCircle2, CreditCard, Info, Loader2, Search, User 
+} from 'lucide-react';
+
+// Utility functions
+const formatYearMonth = (yearMonth: string): string => {
+  if (!yearMonth) return '';
+  const year = yearMonth.substring(0, 4);
+  const month = yearMonth.substring(4);
+  return `${year}年${month}月`;
+};
+
+const getPaymentPeriod = (startYearMonth: string, months: number) => {
+  if (!startYearMonth) return null;
+  
+  const year = parseInt(startYearMonth.substring(0, 4));
+  const month = parseInt(startYearMonth.substring(4));
+  const startDate = new Date(year, month - 1, 1);
+  const endDate = addMonths(startDate, months);
+  
+  const endYearMonth = format(endDate, 'yyyyMM');
+  return {
+    startYearMonth,
+    endYearMonth,
+    formattedStart: formatYearMonth(startYearMonth),
+    formattedEnd: formatYearMonth(endYearMonth),
+    months
+  };
+};
 
 const Payment: React.FC = () => {
   const [searchType, setSearchType] = useState<'spot' | 'name'>('spot');
@@ -15,572 +53,513 @@ const Payment: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
-  const [paymentMonths, setPaymentMonths] = useState<number>(1); // 支払い月数の状態
-  const [lastPaidMonth, setLastPaidMonth] = useState<string | null>(null); // 最後に支払われた月
+  const [paymentMonths, setPaymentMonths] = useState<number>(1);
+  const [lastPaidMonth, setLastPaidMonth] = useState<string | null>(null);
 
   const monthlyFee = parseInt(import.meta.env.VITE_MONTHLY_PARKING_FEE || '10000');
-  
-  // Supabaseからデータを取得するための状態管理
-  const [isInitialLoad, setIsInitialLoad] = useState(true);
 
+  // Reset state when component mounts
   useEffect(() => {
-    if (isInitialLoad) {
-      setIsInitialLoad(false);
-    }
-  }, [isInitialLoad]);
+    resetForm();
+  }, []);
 
-  // 最後に支払われた月を計算する関数
-  const calculateLastPaidMonth = (contract: ContractWithDetails) => {
+  // Calculate the last paid month for a contract
+  const calculateLastPaidMonth = (contract: ContractWithDetails): string => {
     if (!contract || !contract.payments || contract.payments.length === 0) {
-      // 支払いがない場合は契約開始月の前月を返す（まだ1ヶ月も支払われていない）
+      // If no payments, return the month before contract start
       const startDate = parseISO(`${contract.start_month}-01`);
       const prevMonth = addMonths(startDate, -1);
-      return format(prevMonth, 'yyyy-MM');
+      return format(prevMonth, 'yyyyMM');
     }
 
-    // 支払い済みの支払いだけをフィルタリング
+    // Filter for paid payments only
     const paidPayments = contract.payments.filter(payment => payment.status === 'paid');
-    
+
     if (paidPayments.length === 0) {
-      // 支払い済みの支払いがない場合
+      // If no paid payments, return the month before contract start
       const startDate = parseISO(`${contract.start_month}-01`);
       const prevMonth = addMonths(startDate, -1);
-      return format(prevMonth, 'yyyy-MM');
+      return format(prevMonth, 'yyyyMM');
     }
 
-    // 支払い情報を年月でソート（最新の支払い月を取得するため）
+    // Sort payments by year_month (descending)
     const sortedPayments = [...paidPayments].sort((a, b) => {
-      // year_monthを比較（例: '2025-06' > '2025-05'）
       return b.year_month.localeCompare(a.year_month);
     });
 
-    // 最新の支払い月を返す
+    // Return the most recent paid month
     return sortedPayments[0].year_month;
   };
 
+  // Handle the search form submission
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!searchValue) {
       setError('検索値を入力してください');
       return;
     }
-    
+
+    setLoading(true);
+    setError('');
+    setSuccess(false);
+    setContract(null);
+
     try {
-      setLoading(true);
-      setError('');
-      setContract(null);
-      setSuccess(false);
-      
-      // 検索結果をシミュレートするための遅延
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      let query;
+      let data;
+      let searchError;
       
       if (searchType === 'spot') {
-        // 駐車場番号で検索
-        const spotNumber = parseInt(searchValue);
-        if (isNaN(spotNumber)) {
-          setError('有効な駐車スペース番号を入力してください');
-          setLoading(false);
-          return;
-        }
-        
-        // 駐車スペース番号で検索する場合はまずスペースを検索してから契約を取得
-        const { data: spotData } = await supabase
-          .from('parking_spots')
-          .select('id')
-          .eq('spot_number', spotNumber)
-          .single();
-          
-        if (!spotData) {
-          setError('指定された駐車スペースが見つかりません');
-          setLoading(false);
-          return;
-        }
-        
-        query = supabase
+        // Search by parking spot number
+        const result = await supabase
           .from('contracts')
           .select(`
             *,
-            customer:customer_id(*),
-            parking_spot:spot_id(*),
-            payments(*)
+            customer:customers(id, name, phone),
+            parking_spot:parking_spots(id, spot_number),
+            payments(id, year_month, amount, status, paid_at)
           `)
-          .eq('spot_id', spotData.id);
-      } else if (searchType === 'name') {
-        // 顧客名で検索
-        if (searchValue.trim() === '') {
-          setError('顧客名を入力してください');
-          setLoading(false);
-          return;
-        }
-        
-        // 顧客名で検索する場合はまず顧客を検索してから契約を取得
-        const { data: customerData } = await supabase
-          .from('customers')
-          .select('id')
-          .ilike('name', `%${searchValue}%`);
+          .eq('parking_spot.spot_number', searchValue);
           
-        if (!customerData || customerData.length === 0) {
-          setError('指定された名前の顧客が見つかりません');
-          setLoading(false);
-          return;
-        }
-        
-        // 顧客IDの配列を作成
-        const customerIds = customerData.map(c => c.id);
-        
-        query = supabase
-          .from('contracts')
-          .select(`
-            *,
-            customer:customer_id(*),
-            parking_spot:spot_id(*),
-            payments(*)
-          `)
-          .in('customer_id', customerIds);
+        data = result.data;
+        searchError = result.error;
       } else {
-        setError('検索条件を入力してください');
+        // Search by customer name
+        const result = await supabase
+          .from('contracts')
+          .select(`
+            *,
+            customer:customers(id, name, phone),
+            parking_spot:parking_spots(id, spot_number),
+            payments(id, year_month, amount, status, paid_at)
+          `)
+          .ilike('customer.name', `%${searchValue}%`);
+          
+        data = result.data;
+        searchError = result.error;
+      }
+
+      if (searchError) {
+        throw searchError;
+      }
+
+      if (!data || data.length === 0) {
+        setError('契約が見つかりませんでした');
         setLoading(false);
         return;
       }
 
-      const { data, error: queryError } = await query;
-
-      if (queryError) {
-        throw queryError;
-      }
-
-      if (data && data.length > 0) {
-        const contractData = data[0] as ContractWithDetails;
-        setContract(contractData);
-        
-        // 最後に支払われた月を計算して設定
-        const lastPaid = calculateLastPaidMonth(contractData);
-        setLastPaidMonth(lastPaid);
-        
-        // 支払い月数をデフォルトで1に設定
-        setPaymentMonths(1);
-      } else {
-        setError('契約情報が見つかりませんでした');
-      }
-    } catch (error) {
-      console.error('Error searching contract:', error);
-      setError('契約情報の検索中にエラーが発生しました');
-    } finally {
+      // Use the first contract found
+      const foundContract = data[0] as ContractWithDetails;
+      setContract(foundContract);
+      
+      // Calculate the last paid month
+      const lastPaid = calculateLastPaidMonth(foundContract);
+      setLastPaidMonth(lastPaid);
+      
+      setLoading(false);
+    } catch (err) {
+      console.error('Search error:', err);
+      setError('検索中にエラーが発生しました');
       setLoading(false);
     }
   };
 
+  // Handle the payment process
   const handlePayment = async () => {
-    try {
-      setLoading(true);
-      
-      if (!contract || !lastPaidMonth) {
-        throw new Error('契約情報が不足しています');
-      }
-      
-      // 支払い対象の月を計算
-      const lastPaidDate = parseISO(`${lastPaidMonth}-01`);
-      const paymentMonthsArray = [];
-      
-      // 支払い対象の月を配列に追加
-      for (let i = 1; i <= paymentMonths; i++) {
-        const targetMonth = addMonths(lastPaidDate, i);
-        paymentMonthsArray.push(format(targetMonth, 'yyyy-MM'));
-      }
-      
-      // 支払い処理をシミュレート
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
-      // 実際の実装では、ここでStripeなどの決済処理を行う
-      // 支払い金額は月額料金 × 支払い月数
-      const totalAmount = monthlyFee * paymentMonths;
-      
-      console.log(`支払い月数: ${paymentMonths}ヶ月分`);
-      console.log(`支払い金額: ¥${totalAmount.toLocaleString()}`);
-      console.log('支払い対象月:', paymentMonthsArray);
-      
-      // Supabaseに支払い情報を記録する処理
-      // 各月分の支払いレコードを作成
-      const paymentRecords = paymentMonthsArray.map(yearMonth => ({
-        contract_id: contract.id,
-        year_month: yearMonth,
-        amount: monthlyFee,
-        status: 'paid',
-        paid_at: new Date().toISOString()
-      }));
-      
-      console.log('支払いレコードを作成:', paymentRecords);
-      
-      const { error } = await supabase
-        .from('payments')
-        .insert(paymentRecords);
-      
-      if (error) throw error;
-      
-      // 支払い完了後の処理
-      setSuccess(true);
-      
-      // 最後に支払われた月を更新
-      if (paymentMonthsArray.length > 0) {
-        setLastPaidMonth(paymentMonthsArray[paymentMonthsArray.length - 1]);
-      }
-      
-    } catch (error) {
-      console.error('Error processing payment:', error);
-      setError('支払い処理中にエラーが発生しました');
-    } finally {
-      setLoading(false);
+    if (!contract || !lastPaidMonth) {
+      setError('契約情報がありません');
+      return;
     }
-  };
 
-  const formatYearMonth = (yearMonth: string) => {
-    return yearMonth.replace('-', '年') + '月';
-  };
+    setLoading(true);
+    setError('');
+    setSuccess(false);
 
-  // 契約終了日を計算する関数
-  const calculateEndDate = (startMonth: string, durationMonths: number) => {
     try {
-      const [year, month] = startMonth.split('-').map(Number);
+      // Calculate the payment period
+      const lastPaidDate = new Date(
+        parseInt(lastPaidMonth.substring(0, 4)),
+        parseInt(lastPaidMonth.substring(4)) - 1,
+        1
+      );
       
-      // 開始月から期間を加算して終了年月を計算
-      let endYear = year;
-      let endMonth = month + durationMonths - 1; // 契約開始月も含むため-1
+      // Calculate the next month to be paid
+      const nextPaymentDate = addMonths(lastPaidDate, 1);
+      const nextPaymentYearMonth = format(nextPaymentDate, 'yyyyMM');
       
-      // 月が12を超える場合は年を繰り上げ
-      if (endMonth > 12) {
-        endYear += Math.floor(endMonth / 12);
-        endMonth = endMonth % 12;
-        if (endMonth === 0) {
-          endMonth = 12;
-          endYear -= 1;
+      // Calculate total payment amount
+      const paymentAmount = monthlyFee * paymentMonths;
+
+      // Create payment records for each month
+      for (let i = 0; i < paymentMonths; i++) {
+        const paymentDate = addMonths(nextPaymentDate, i);
+        const paymentYearMonth = format(paymentDate, 'yyyyMM');
+        
+        // Check if payment already exists
+        const { data: existingPayments } = await supabase
+          .from('payments')
+          .select('*')
+          .eq('contract_id', contract.id)
+          .eq('year_month', paymentYearMonth);
+        
+        if (existingPayments && existingPayments.length > 0) {
+          // Update existing payment
+          await supabase
+            .from('payments')
+            .update({
+              amount: monthlyFee,
+              status: 'paid',
+              paid_at: new Date().toISOString()
+            })
+            .eq('id', existingPayments[0].id);
+        } else {
+          // Insert new payment
+          await supabase.from('payments').insert({
+            contract_id: contract.id,
+            year_month: paymentYearMonth,
+            amount: monthlyFee,
+            status: 'paid',
+            paid_at: new Date().toISOString()
+          });
         }
       }
-      
-      return `${endYear}年${endMonth}月`;
-    } catch (error) {
-      console.error('Error calculating end date:', error);
-      return '計算エラー';
+
+      // Refresh contract data
+      const { data: updatedContract } = await supabase
+        .from('contracts')
+        .select(`
+          *,
+          customer:customers(id, name, phone),
+          parking_spot:parking_spots(id, spot_number),
+          payments(id, year_month, amount, status, paid_at)
+        `)
+        .eq('id', contract.id)
+        .single();
+
+      if (updatedContract) {
+        setContract(updatedContract as ContractWithDetails);
+        const updatedLastPaid = calculateLastPaidMonth(updatedContract as ContractWithDetails);
+        setLastPaidMonth(updatedLastPaid);
+      }
+
+      setSuccess(true);
+      setLoading(false);
+    } catch (err) {
+      console.error('Payment error:', err);
+      setError('支払い処理中にエラーが発生しました');
+      setLoading(false);
     }
   };
 
-  // 次回支払い月の支払い期限を計算する関数
+  // Calculate the next payment deadline
   const getNextPaymentDeadline = (lastPaidYearMonth: string | null, contract: ContractWithDetails | null) => {
-    if (!lastPaidYearMonth && !contract) {
-      // データがない場合は現在の月を使用
-      const now = new Date();
-      const year = now.getFullYear();
-      const month = now.getMonth() + 1;
-      const lastDay = new Date(year, month, 0).getDate();
-      return `${year}年${month}月${lastDay}日`;
-    }
+    if (!lastPaidYearMonth || !contract) return null;
+
+    // Parse the last paid year and month
+    const year = parseInt(lastPaidYearMonth.substring(0, 4));
+    const month = parseInt(lastPaidYearMonth.substring(4));
     
-    let nextPaymentMonth;
+    // Create a date object for the last paid month
+    const lastPaidDate = new Date(year, month - 1, 1);
     
-    if (lastPaidYearMonth) {
-      // 最後に支払われた月から1ヶ月先を計算
-      const lastPaidDate = parseISO(`${lastPaidYearMonth}-01`);
-      nextPaymentMonth = addMonths(lastPaidDate, 1);
-    } else if (contract) {
-      // 支払いがない場合は契約開始月を使用
-      nextPaymentMonth = parseISO(`${contract.start_month}-01`);
-    } else {
-      // フォールバックとして現在の月を使用
-      nextPaymentMonth = new Date();
-    }
+    // Add one month to get the next payment month
+    const nextPaymentDate = addMonths(lastPaidDate, 1);
     
-    const year = nextPaymentMonth.getFullYear();
-    const month = nextPaymentMonth.getMonth() + 1;
+    // The payment deadline is the 5th of the month
+    nextPaymentDate.setDate(5);
     
-    // 月末日を取得
-    const lastDay = new Date(year, month, 0).getDate();
-    
-    return `${year}年${month}月${lastDay}日`;
+    return nextPaymentDate;
+  };
+
+  // Reset the search form
+  const resetForm = () => {
+    setSearchValue('');
+    setContract(null);
+    setError('');
+    setSuccess(false);
+    setPaymentMonths(1);
   };
 
   return (
     <Layout>
-      <div className="max-w-2xl mx-auto">
-        <Card>
-          <h1 className="text-2xl font-bold text-center mb-6">駐車場料金支払い</h1>
+      <div className="container mx-auto py-6 px-4 md:px-6">
+        <h1 className="text-3xl font-bold mb-6 text-gray-800">駐車場料金支払い</h1>
+        
+        {/* Search Section */}
+        <Card className="mb-8 shadow-md">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Search className="h-5 w-5 text-blue-600" />
+              契約検索
+            </CardTitle>
+          </CardHeader>
           
-          {success ? (
-            <div className="text-center">
-              <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded mb-6">
-                支払いが完了しました。ありがとうございます！
+          <CardContent>
+            <form onSubmit={handleSearch} className="space-y-4">
+              <Tabs defaultValue="spot" className="w-full" onValueChange={(value) => setSearchType(value as 'spot' | 'name')}>
+                <TabsList className="grid w-full max-w-md grid-cols-2">
+                  <TabsTrigger value="spot" className="flex items-center gap-2">
+                    <CarFront className="h-4 w-4" />
+                    駐車場番号
+                  </TabsTrigger>
+                  <TabsTrigger value="name" className="flex items-center gap-2">
+                    <User className="h-4 w-4" />
+                    契約者名
+                  </TabsTrigger>
+                </TabsList>
+                
+                <TabsContent value="spot" className="pt-4">
+                  <div className="space-y-2">
+                    <label htmlFor="spot-search" className="text-sm font-medium leading-none">駐車場番号</label>
+                    <Input
+                      id="spot-search"
+                      placeholder="例: A-101"
+                      value={searchValue}
+                      onChange={(e) => setSearchValue(e.target.value)}
+                      className="max-w-md"
+                    />
+                  </div>
+                </TabsContent>
+                
+                <TabsContent value="name" className="pt-4">
+                  <div className="space-y-2">
+                    <label htmlFor="name-search" className="text-sm font-medium leading-none">契約者名</label>
+                    <Input
+                      id="name-search"
+                      placeholder="例: 山田太郎"
+                      value={searchValue}
+                      onChange={(e) => setSearchValue(e.target.value)}
+                      className="max-w-md"
+                    />
+                  </div>
+                </TabsContent>
+              </Tabs>
+              
+              <div className="flex flex-wrap gap-3 pt-2">
+                <Button type="submit" disabled={loading} className="flex items-center gap-2">
+                  {loading ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      検索中...
+                    </>
+                  ) : (
+                    <>
+                      <Search className="h-4 w-4" />
+                      検索
+                    </>
+                  )}
+                </Button>
+                
+                <Button type="button" variant="outline" onClick={resetForm}>
+                  リセット
+                </Button>
               </div>
               
-              <p className="mb-4">
-                支払い確認メールが登録されたメールアドレスに送信されます。
-              </p>
-              
-              <Button onClick={() => {
-                setSuccess(false);
-                setContract(null);
-                setSearchValue('');
-              }}>
-                別の支払いを行う
-              </Button>
-            </div>
-          ) : (
-            <>
-              {!contract ? (
-                <form onSubmit={handleSearch}>
-                  {error && (
-                    <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded mb-4">
-                      {error}
-                    </div>
-                  )}
-                  
-                  <div className="mb-4">
-                    <div className="flex space-x-4">
-                      <label className="flex items-center">
-                        <input
-                          type="radio"
-                          checked={searchType === 'spot'}
-                          onChange={() => setSearchType('spot')}
-                          className="mr-2"
-                        />
-                        駐車スペース番号で検索
-                      </label>
-                      
-                      <label className="flex items-center">
-                        <input
-                          type="radio"
-                          checked={searchType === 'name'}
-                          onChange={() => setSearchType('name')}
-                          className="mr-2"
-                        />
-                        契約者名で検索
-                      </label>
-                    </div>
-                  </div>
-                  
-                  <Input
-                    id="searchValue"
-                    label={searchType === 'spot' ? '駐車スペース番号' : '契約者名'}
-                    placeholder={searchType === 'spot' ? '例: 1' : '例: 山田太郎'}
-                    value={searchValue}
-                    onChange={(e) => setSearchValue(e.target.value)}
-                    required
-                  />
-                  
-                  <div className="mt-6">
-                    <Button type="submit" fullWidth disabled={loading}>
-                      {loading ? <LoadingSpinner size="sm" color="white" /> : '検索'}
-                    </Button>
-                  </div>
-                </form>
-              ) : (
+              {error && (
+                <div className="bg-red-50 text-red-700 p-3 rounded-md flex items-start gap-2 max-w-md">
+                  <AlertCircle className="h-5 w-5 text-red-500 shrink-0 mt-0.5" />
+                  <p>{error}</p>
+                </div>
+              )}
+            </form>
+          </CardContent>
+        </Card>
+        
+        {/* Contract Information and Payment Section */}
+        {contract && (
+          <div className="space-y-8">
+            {/* Success Message */}
+            {success && (
+              <div className="bg-gradient-to-r from-green-50 to-emerald-50 border border-green-100 p-4 rounded-lg shadow-sm flex items-start gap-3 mb-6">
+                <CheckCircle2 className="h-6 w-6 text-green-500 shrink-0" />
                 <div>
-                  <div className="bg-blue-50 border border-blue-200 text-blue-700 px-4 py-3 rounded mb-6">
-                    契約情報が見つかりました
+                  <h3 className="font-medium text-green-800">支払いが完了しました</h3>
+                  <p className="text-green-700 mt-1">
+                    {paymentMonths}ヶ月分の支払いが正常に処理されました。
+                  </p>
+                </div>
+              </div>
+            )}
+            
+            {/* Contract Details */}
+            <Card className="shadow-md bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-100">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-blue-800">
+                  <Info className="h-5 w-5 text-blue-600" />
+                  契約情報
+                </CardTitle>
+              </CardHeader>
+              
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-4">
+                    <div>
+                      <h3 className="text-sm font-medium text-gray-500">契約者</h3>
+                      <p className="text-lg font-medium text-gray-900">{contract.customer?.name}</p>
+                    </div>
+                    
+                    <div>
+                      <h3 className="text-sm font-medium text-gray-500">連絡先</h3>
+                      <p className="text-lg font-medium text-gray-900">{contract.customer?.phone || '登録なし'}</p>
+                    </div>
+                    
+                    <div>
+                      <h3 className="text-sm font-medium text-gray-500">契約開始日</h3>
+                      <p className="text-lg font-medium text-gray-900">{formatYearMonth(contract.start_month)}</p>
+                    </div>
                   </div>
-                  <div className="p-4">
-                    <div className="mb-6">
-                      <h3 className="text-lg font-medium mb-4">契約情報</h3>
-                      <div className="overflow-x-auto bg-white rounded-lg shadow">
-                        <table className="min-w-full divide-y divide-gray-200">
-                          <thead className="bg-gray-50">
-                            <tr>
-                              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                契約者名
-                              </th>
-                              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                駐車スペース
-                              </th>
-                              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                契約開始日
-                              </th>
-                              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                契約終了日
-                              </th>
-                              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                契約期間
-                              </th>
-                            </tr>
-                          </thead>
-                          <tbody className="bg-white divide-y divide-gray-200">
-                            <tr>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                                {contract.customer?.name}
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                No.{contract.parking_spot?.spot_number}
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                {formatYearMonth(contract.start_month)}
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                {calculateEndDate(contract.start_month, contract.duration_months)}
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                {contract.duration_months}ヶ月
-                              </td>
-                            </tr>
-                          </tbody>
-                        </table>
+                  
+                  <div className="space-y-4">
+                    <div>
+                      <h3 className="text-sm font-medium text-gray-500">駐車場番号</h3>
+                      <div className="flex items-center gap-2">
+                        <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-200 px-3 py-1 text-base">
+                          {contract.parking_spot?.spot_number}
+                        </Badge>
                       </div>
                     </div>
                     
-                    <div className="mb-6">
-                      <h3 className="text-lg font-medium mb-4">月額料金情報</h3>
-                      
-                      <div className="overflow-x-auto bg-white rounded-lg shadow mb-4">
-                        <table className="min-w-full divide-y divide-gray-200">
-                          <thead className="bg-gray-50">
-                            <tr>
-                              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                月額料金
-                              </th>
-                              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                支払い状況
-                              </th>
-                              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                支払い期限
-                              </th>
-                              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                支払い月数
-                              </th>
-                            </tr>
-                          </thead>
-                          <tbody className="bg-white divide-y divide-gray-200">
-                            <tr>
-                              <td className="px-6 py-4 whitespace-nowrap">
-                                <span className="text-lg font-medium text-gray-900">¥{monthlyFee.toLocaleString()}</span>
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap">
-                                <div>
-                                  <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800 mb-1">
-                                    {lastPaidMonth ? formatYearMonth(lastPaidMonth) : '未支払い'} まで支払い済み
-                                  </span>
-                                  <div className="text-xs text-gray-500 mt-1">
-                                    次回支払い月: {lastPaidMonth ? formatYearMonth(format(addMonths(parseISO(`${lastPaidMonth}-01`), 1), 'yyyy-MM')) : formatYearMonth(contract.start_month)}
-                                  </div>
-                                </div>
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                {getNextPaymentDeadline(lastPaidMonth, contract)}
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap">
-                                <div className="flex items-center space-x-4">
-                                  <div>
-                                    <label htmlFor="paymentMonths" className="block text-sm font-medium text-gray-700 mb-1">
-                                      支払い月数
-                                    </label>
-                                    <select
-                                      id="paymentMonths"
-                                      value={paymentMonths}
-                                      onChange={(e) => setPaymentMonths(parseInt(e.target.value))}
-                                      className="block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
-                                      disabled={loading}
-                                    >
-                                      {[1, 2, 3, 4, 5, 6, 12].map((months) => (
-                                        <option key={months} value={months}>
-                                          {months} ヶ月分 (¥{(monthlyFee * months).toLocaleString()})
-                                        </option>
-                                      ))}
-                                    </select>
-                                  </div>
-                                </div>
-                              </td>
-                            </tr>
-                          </tbody>
-                        </table>
-                      </div>
-                      
-                      <div className="mt-4 text-center">
-                        <Button onClick={handlePayment} disabled={loading} fullWidth>
-                          {loading ? <LoadingSpinner size="sm" color="white" /> : `${paymentMonths}ヶ月分 (¥${(monthlyFee * paymentMonths).toLocaleString()}) 支払う`}
-                        </Button>
-                      </div>
-                      
-                      <div className="mt-8 mb-6">
-                        <h3 className="text-lg font-medium mb-4">支払い履歴</h3>
-                        {contract.payments && contract.payments.filter(p => p.status === 'paid').length > 0 ? (
-                          <div className="overflow-x-auto bg-white rounded-lg shadow">
-                            <table className="min-w-full divide-y divide-gray-200">
-                              <thead className="bg-gray-50">
-                                <tr>
-                                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    支払い対象月
-                                  </th>
-                                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    支払い日
-                                  </th>
-                                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    金額
-                                  </th>
-                                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    ステータス
-                                  </th>
-                                </tr>
-                              </thead>
-                              <tbody className="bg-white divide-y divide-gray-200">
-                                {contract.payments
-                                  .filter(payment => payment.status === 'paid')
-                                  .sort((a, b) => b.year_month.localeCompare(a.year_month))
-                                  .map((payment, index) => (
-                                    <tr key={payment.id || index}>
-                                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                        {formatYearMonth(payment.year_month)}
-                                      </td>
-                                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                        {payment.paid_at ? new Date(payment.paid_at).toLocaleDateString('ja-JP') : '-'}
-                                      </td>
-                                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                        ¥{payment.amount.toLocaleString()}
-                                      </td>
-                                      <td className="px-6 py-4 whitespace-nowrap">
-                                        <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
-                                          支払い済み
-                                        </span>
-                                      </td>
-                                    </tr>
-                                  ))
-                                }
-                              </tbody>
-                            </table>
-                          </div>
-                        ) : (
-                          <div className="text-center py-8 bg-gray-50 rounded-lg border border-gray-200">
-                            <p className="text-gray-500">支払い履歴がありません</p>
-                          </div>
-                        )}
-                      </div>
-
-                      <div className="bg-blue-50 border border-blue-100 p-3 rounded-lg">
-                        <h4 className="text-blue-800 font-medium mb-1">ご案内</h4>
-                        <p className="text-sm text-blue-700">
-                          この駒車場契約は月額制です。毎月の利用料金は月末までにお支払いください。
-                        </p>
-                      </div>
-                      
-                      <p className="text-sm text-gray-500 mt-2">
-                        ※ 支払いはStripeの安全な決済ページで行われます
+                    <div>
+                      <h3 className="text-sm font-medium text-gray-500">月額料金</h3>
+                      <p className="text-lg font-medium text-gray-900">¥{monthlyFee.toLocaleString()}</p>
+                    </div>
+                    
+                    <div>
+                      <h3 className="text-sm font-medium text-gray-500">最終支払い月</h3>
+                      <p className="text-lg font-medium text-gray-900">
+                        {lastPaidMonth ? formatYearMonth(lastPaidMonth) : '支払いなし'}
                       </p>
-                    </div>
-                    
-                    <div className="mt-6 text-center">
-                      <button
-                        onClick={() => {
-                          setContract(null);
-                          setSearchValue('');
-                          setError('');
-                        }}
-                        className="text-blue-600 hover:text-blue-800 text-sm"
-                      >
-                        別の契約を検索する
-                      </button>
                     </div>
                   </div>
                 </div>
-              )}
-            </>
-          )}
-        </Card>
+                
+                <Separator className="my-6" />
+                
+                {/* Payment Form */}
+                <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-100">
+                  <h3 className="text-lg font-medium text-gray-900 mb-4 flex items-center gap-2">
+                    <CreditCard className="h-5 w-5 text-blue-600" />
+                    支払い
+                  </h3>
+                  
+                  <div className="space-y-6">
+                    <div className="space-y-2">
+                      <label htmlFor="payment-months" className="text-sm font-medium leading-none">支払い月数</label>
+                      <Select
+                        value={paymentMonths.toString()}
+                        onValueChange={(value) => setPaymentMonths(parseInt(value))}
+                      >
+                        <SelectTrigger className="w-full max-w-xs">
+                          <SelectValue placeholder="支払い月数を選択" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {[1, 2, 3, 6, 12].map((months) => (
+                            <SelectItem key={months} value={months.toString()}>
+                              {months}ヶ月 (¥{(monthlyFee * months).toLocaleString()})
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    
+                    {lastPaidMonth && (
+                      <div className="bg-amber-50 border border-amber-100 rounded-md p-4">
+                        <h4 className="font-medium text-amber-800 flex items-center gap-2 mb-2">
+                          <Info className="h-4 w-4 text-amber-600" />
+                          支払い期間
+                        </h4>
+                        <p className="text-amber-700">
+                          {lastPaidMonth && getPaymentPeriod(
+                            format(addMonths(new Date(parseInt(lastPaidMonth.substring(0, 4)), parseInt(lastPaidMonth.substring(4)) - 1, 1), 1), 'yyyyMM'),
+                            paymentMonths
+                          )?.formattedStart} から {lastPaidMonth && getPaymentPeriod(
+                            format(addMonths(new Date(parseInt(lastPaidMonth.substring(0, 4)), parseInt(lastPaidMonth.substring(4)) - 1, 1), 1), 'yyyyMM'),
+                            paymentMonths
+                          )?.formattedEnd} まで
+                        </p>
+                        <p className="text-amber-700 mt-1">
+                          合計: <span className="font-bold">¥{(monthlyFee * paymentMonths).toLocaleString()}</span>
+                        </p>
+                      </div>
+                    )}
+                    
+                    <Button
+                      onClick={handlePayment}
+                      disabled={loading}
+                      className="w-full max-w-xs bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
+                    >
+                      {loading ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                          処理中...
+                        </>
+                      ) : (
+                        <>
+                          <CreditCard className="h-4 w-4 mr-2" />
+                          支払い処理
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            
+            {/* Payment History */}
+            {contract.payments && contract.payments.length > 0 && (
+              <Card className="shadow-md">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <CreditCard className="h-5 w-5 text-blue-600" />
+                    支払い履歴
+                  </CardTitle>
+                </CardHeader>
+                
+                <CardContent>
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>支払い月</TableHead>
+                          <TableHead>支払い日</TableHead>
+                          <TableHead>金額</TableHead>
+                          <TableHead>状態</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {[...contract.payments]
+                          .sort((a, b) => b.year_month.localeCompare(a.year_month))
+                          .map((payment, index) => (
+                            <TableRow key={index}>
+                              <TableCell className="font-medium">
+                                {formatYearMonth(payment.year_month)}
+                              </TableCell>
+                              <TableCell>
+                                {payment.paid_at ? format(new Date(payment.paid_at), 'yyyy/MM/dd') : '-'}
+                              </TableCell>
+                              <TableCell>¥{payment.amount.toLocaleString()}</TableCell>
+                              <TableCell>
+                                {payment.status === 'paid' ? (
+                                  <Badge className="bg-green-100 text-green-800 hover:bg-green-200">
+                                    支払い済み
+                                  </Badge>
+                                ) : (
+                                  <Badge variant="outline" className="text-amber-800 border-amber-300">
+                                    未払い
+                                  </Badge>
+                                )}
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        )}
       </div>
     </Layout>
   );

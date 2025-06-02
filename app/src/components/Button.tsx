@@ -8,6 +8,7 @@ type ButtonProps = {
   disabled?: boolean;
   onClick?: () => void;
   type?: 'button' | 'submit' | 'reset';
+  className?: string;
 };
 
 const Button: React.FC<ButtonProps> = ({
@@ -18,6 +19,7 @@ const Button: React.FC<ButtonProps> = ({
   disabled = false,
   onClick,
   type = 'button',
+  className = '',
 }) => {
   const baseClasses = 'rounded font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2';
   
@@ -42,7 +44,7 @@ const Button: React.FC<ButtonProps> = ({
       type={type}
       onClick={onClick}
       disabled={disabled}
-      className={`${baseClasses} ${variantClasses[variant]} ${sizeClasses[size]} ${widthClass} ${disabledClass}`}
+      className={`${baseClasses} ${variantClasses[variant]} ${sizeClasses[size]} ${widthClass} ${disabledClass} ${className}`}
     >
       {children}
     </button>
