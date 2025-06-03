@@ -1,76 +1,120 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
- 
+
 @layer base {
   :root {
+    /* デジタル庁カラーパレット - 公式デザイン */
     --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    --foreground: 220 35% 15%;
 
+    /* デジタル庁の公式ブルー #0075C2 */
+    --primary: 203 100% 38%;
+    --primary-foreground: 0 0% 100%;
+
+    /* セカンダリーカラー - 明るい青 */
+    --secondary: 203 100% 95%;
+    --secondary-foreground: 203 100% 30%;
+
+    /* カード背景 */
     --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
- 
-    --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
- 
-    --primary: 221.2 83.2% 53.3%;
-    --primary-foreground: 210 40% 98%;
- 
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
- 
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
- 
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
- 
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
+    --card-foreground: 220 35% 15%;
 
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 221.2 83.2% 53.3%;
- 
+    /* ポップオーバー */
+    --popover: 0 0% 100%;
+    --popover-foreground: 220 35% 15%;
+
+    /* ミュートカラー */
+    --muted: 210 20% 96%;
+    --muted-foreground: 220 20% 40%;
+
+    /* アクセントカラー - デジタル庁のアクセントカラー #00ADA9 */
+    --accent: 178 100% 34%;
+    --accent-foreground: 0 0% 100%;
+
+    /* 警告・エラーカラー */
+    --destructive: 0 85% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    /* 成功カラー */
+    --success: 142 76% 36%;
+    --success-foreground: 0 0% 100%;
+
+    /* 警告カラー */
+    --warning: 38 92% 50%;
+    --warning-foreground: 0 0% 100%;
+
+    /* ボーダーとインプット */
+    --border: 203 20% 90%;
+    --input: 203 20% 90%;
+    --ring: 203 100% 38%;
+
     --radius: 0.5rem;
   }
- 
+
   .dark {
     --background: 222.2 84% 4.9%;
     --foreground: 210 40% 98%;
- 
+
     --card: 222.2 84% 4.9%;
     --card-foreground: 210 40% 98%;
- 
+
     --popover: 222.2 84% 4.9%;
     --popover-foreground: 210 40% 98%;
- 
+
     --primary: 217.2 91.2% 59.8%;
     --primary-foreground: 222.2 47.4% 11.2%;
- 
+
     --secondary: 217.2 32.6% 17.5%;
     --secondary-foreground: 210 40% 98%;
- 
+
     --muted: 217.2 32.6% 17.5%;
     --muted-foreground: 215 20.2% 65.1%;
- 
+
     --accent: 217.2 32.6% 17.5%;
     --accent-foreground: 210 40% 98%;
- 
+
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 210 40% 98%;
- 
+
     --border: 217.2 32.6% 17.5%;
     --input: 217.2 32.6% 17.5%;
     --ring: 224.3 76.3% 48%;
   }
 }
- 
+
 @layer base {
   * {
-    @apply border-border;
+    border-color: rgba(0, 0, 0, 0.1);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   }
   body {
-    @apply bg-background text-foreground;
+    background-color: white;
+    color: black;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   }
+}
+
+/* Radix UI SelectItemのチェックマークを非表示にする - より具体的なセレクタを使用 */
+[data-radix-select-item-indicator],
+[data-radix-select-item-indicator-wrapper],
+[role="menuitemradio"] > span:first-child,
+[role="option"] > span:first-child,
+[data-state="checked"]::before,
+[data-state="checked"]::after,
+[data-radix-select-item][data-state="checked"]::before,
+[data-radix-select-item][data-highlighted]::before {
+  display: none !important;
+  opacity: 0 !important;
+  width: 0 !important;
+  height: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+/* ドロップダウンの背景を完全不透明にし、幅を固定 */
+.SelectContent,
+[role="listbox"] {
+  background-color: white !important;
+  width: 280px !important;
 }
