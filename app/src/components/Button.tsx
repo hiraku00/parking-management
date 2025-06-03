@@ -21,23 +21,25 @@ const Button: React.FC<ButtonProps> = ({
   type = 'button',
   className = '',
 }) => {
-  const baseClasses = 'rounded font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2';
+  const baseClasses = 'rounded-full font-medium transition-all focus:outline-none focus:ring-2 focus:ring-offset-1 flex items-center justify-center';
   
   const variantClasses = {
-    primary: 'bg-blue-600 text-white hover:bg-blue-700 focus:ring-blue-500',
-    secondary: 'bg-gray-200 text-gray-800 hover:bg-gray-300 focus:ring-gray-500',
+    primary: 'bg-black text-white hover:bg-black/90 focus:ring-black/30 shadow-sm',
+    secondary: 'bg-white text-black border border-black/10 hover:bg-black/5 focus:ring-black/20',
     danger: 'bg-red-600 text-white hover:bg-red-700 focus:ring-red-500',
     success: 'bg-green-600 text-white hover:bg-green-700 focus:ring-green-500',
   };
   
   const sizeClasses = {
-    sm: 'py-1 px-3 text-sm',
-    md: 'py-2 px-4 text-base',
-    lg: 'py-3 px-6 text-lg',
+    sm: 'py-1.5 px-3.5 text-xs',
+    md: 'py-2 px-5 text-sm',
+    lg: 'py-2.5 px-6 text-base',
   };
   
   const widthClass = fullWidth ? 'w-full' : '';
-  const disabledClass = disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer';
+  const disabledClass = disabled 
+    ? 'opacity-40 cursor-not-allowed' 
+    : 'cursor-pointer hover:transform hover:scale-[1.02] active:scale-[0.98]';
   
   return (
     <button
