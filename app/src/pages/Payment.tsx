@@ -686,21 +686,21 @@ const Payment: React.FC = () => {
                             value={paymentMonths.toString()}
                             onValueChange={(value) => setPaymentMonths(parseInt(value))}
                           >
-                            <SelectTrigger className="w-full bg-white border-[#CCCCCC] hover:border-[#0075C2] transition-colors text-[#333333]">
+                            <SelectTrigger className="w-full bg-white border-[#CCCCCC] hover:border-[#0075C2] transition-colors text-foreground h-12 px-4">
                               <SelectValue>
-                                {paymentMonths}ヶ月 (¥{(monthlyFee * paymentMonths).toLocaleString()})
+                                {`${paymentMonths}ヶ月 (¥${(monthlyFee * paymentMonths).toLocaleString()})`}
                               </SelectValue>
                             </SelectTrigger>
-                            <SelectContent className="bg-white w-[280px]">
+                            <SelectContent className="w-[280px] bg-white">
                               {[1, 2, 3, 6, 12].map((months) => (
                                 <SelectItem 
                                   key={months} 
                                   value={months.toString()}
-                                  className="flex justify-between items-center py-2 px-3"
+                                  className="flex items-center py-3 px-4"
                                 >
-                                  <div className="flex justify-between w-full">
-                                    <span className="font-medium">{months}ヶ月</span>
-                                    <span className="text-[#757575]">¥{(monthlyFee * months).toLocaleString()}</span>
+                                  <div className="flex justify-between w-full items-center">
+                                    <span className="font-medium text-foreground">{months}ヶ月</span>
+                                    <span className="text-muted-foreground">¥{(monthlyFee * months).toLocaleString()}</span>
                                   </div>
                                 </SelectItem>
                               ))}
