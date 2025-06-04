@@ -2,6 +2,16 @@
 @tailwind components;
 @tailwind utilities;
 
+/* テキストカラーを明示的に設定 */
+:root {
+  color: hsl(var(--foreground));
+}
+
+/* ドロップダウンのチェックマークを非表示に */
+[data-state=checked] [data-checked] {
+  display: none !important;
+}
+
 @layer base {
   :root {
     /* デジタル庁カラーパレット - 公式デザイン */
