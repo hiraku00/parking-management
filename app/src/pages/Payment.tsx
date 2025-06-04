@@ -110,33 +110,70 @@ const Payment: React.FC = () => {
       let searchError;
       
       if (searchType === 'spot') {
-        // Search by parking spot number
-        const result = await supabase
-          .from('contracts')
-          .select(`
-            *,
-            customer:customers(id, name, phone),
-            parking_spot:parking_spots(id, spot_number),
-            payments(id, year_month, amount, status, paid_at)
-          `)
-          .eq('parking_spot.spot_number', searchValue);
+        // 駐車場番号で検索（数値として完全一致）
+        const spotNumber = parseInt(searchValue, 10);
+        if (isNaN(spotNumber)) {
+          setError('有効な駐車場番号を入力してください');
+          return;
+        }
+        
+        const { data: spots, error: spotsError } = await supabase
+          .from('parking_spots')
+          .select('*')
+          .eq('spot_number', spotNumber);
           
-        data = result.data;
-        searchError = result.error;
+        if (spotsError) throw spotsError;
+        
+        if (!spots || spots.length === 0) {
+          data = [];
+        } else {
+          // 見つかった駐車場のIDを取得
+          const spotIds = spots.map(spot => spot.id);
+          
+          // 駐車場IDに紐づく契約を取得
+          const { data: contracts, error: contractError } = await supabase
+            .from('contracts')
+            .select(`
+              *,
+              customer:customers(*),
+              parking_spot:parking_spots(*),
+              payments(*)
+            `)
+            .in('spot_id', spotIds);
+            
+          if (contractError) throw contractError;
+          
+          // データを整形
+          data = (contracts || []).map((contract: any) => ({
+            ...contract,
+            customer: contract.customer || null,
+            parking_spot: contract.parking_spot || null,
+            payments: contract.payments || []
+          }));
+        }
       } else {
         // Search by customer name
-        const result = await supabase
-          .from('contracts')
-          .select(`
-            *,
-            customer:customers(id, name, phone),
-            parking_spot:parking_spots(id, spot_number),
-            payments(id, year_month, amount, status, paid_at)
-          `)
-          .ilike('customer.name', `%${searchValue}%`);
+        const { data: customers, error: customerError } = await supabase
+          .from('customers')
+          .select('*, contracts(*, parking_spot:parking_spots(*), payments(*))')
+          .ilike('name', `%${searchValue}%`);
           
-        data = result.data;
-        searchError = result.error;
+        if (customerError) throw customerError;
+        
+        // Transform the data to match the expected contract structure
+        data = customers.flatMap((customer: any) => 
+          customer.contracts.map((contract: any) => ({
+            ...contract,
+            customer: {
+              id: customer.id,
+              name: customer.name,
+              phone: customer.phone,
+              email: customer.email
+            },
+            parking_spot: contract.parking_spot,
+            payments: contract.payments || []
+          }))
+        );
       }
 
       if (searchError) {
@@ -351,7 +388,7 @@ const Payment: React.FC = () => {
                   )}
                 </Button>
                 
-                <Button type="button" variant="outline" onClick={resetForm}>
+                <Button type="button" variant="outline" className="text-foreground" onClick={resetForm}>
                   リセット
                 </Button>
               </div>
@@ -448,10 +485,12 @@ const Payment: React.FC = () => {
                       <label htmlFor="payment-months" className="text-sm font-medium leading-none">支払い月数</label>
                       <Select
                         value={paymentMonths.toString()}
-                        onValueChange={(value) => setPaymentMonths(parseInt(value))}
+                        onValueChange={(value) => setPaymentMonths(parseInt(value, 10))}
                       >
-                        <SelectTrigger className="w-full max-w-xs">
-                          <SelectValue placeholder="支払い月数を選択" />
+                        <SelectTrigger className="w-full max-w-xs text-foreground">
+                          <SelectValue>
+                            {`${paymentMonths}ヶ月 (¥${(monthlyFee * paymentMonths).toLocaleString()})`}
+                          </SelectValue>
                         </SelectTrigger>
                         <SelectContent>
                           {[1, 2, 3, 6, 12].map((months) => (

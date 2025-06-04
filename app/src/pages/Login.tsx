@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import Input from '../components/Input';
 import Button from '../components/Button';
@@ -78,10 +78,14 @@ const Login: React.FC = () => {
           </form>
         </Card>
 
-        <div className="text-center mt-4">
-          <a href="/payment" className="text-blue-600 hover:text-blue-800 text-sm">
-            利用者の方はこちら（支払いページ）
-          </a>
+        <div className="text-center mt-6">
+          <p className="text-sm text-gray-600 mb-2">駐車場をご利用のお客様</p>
+          <Link 
+            to="/payment" 
+            className="inline-block bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-md text-sm transition-colors"
+          >
+            支払いページへ進む
+          </Link>
         </div>
       </div>
     </div>
