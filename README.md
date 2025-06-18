@@ -46,9 +46,6 @@ VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
 
 # Stripe
 VITE_STRIPE_PUBLISHABLE_KEY=your_stripe_publishable_key
-
-# その他
-VITE_SITE_URL=http://localhost:5173
 ```
 
 ### インストール
@@ -63,18 +60,41 @@ npm run dev
 
 ## デプロイ
 
-### Vercel へのデプロイ
+### Supabase へのデプロイ
 
-1. Vercel CLI のインストール
+1. Supabase CLI のインストール
 
 ```bash
-npm install -g vercel
+# macOS
+brew install supabase/tap/supabase
+
+# その他のOSは[公式ドキュメント](https://supabase.com/docs/guides/cli)を参照
 ```
 
-2. デプロイ
+2. プロジェクトのリンク
 
 ```bash
-vercel
+supabase link --project-ref your-project-ref
+```
+
+3. データベースのデプロイ
+
+```bash
+# 開発環境
+supabase db reset
+
+# 本番環境
+supabase db reset --no-seed
+```
+
+4. Edge Functions のデプロイ
+
+```bash
+# Stripe Webhook
+supabase functions deploy stripe-webhook --no-verify-jwt
+
+# チェックアウトセッション作成
+supabase functions deploy create-checkout-session
 ```
 
 ### 注意点

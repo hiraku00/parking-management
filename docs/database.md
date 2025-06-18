@@ -5,27 +5,27 @@
 1. データベースの初期化
 
 ```bash
-# initial_setup.sqlのみを実行
+# スキーマのみを適用（テストデータは投入しない）
 supabase db reset --no-seed
 ```
 
 このコマンドは以下の処理を実行します：
 
-- `initial_setup.sql`の実行（テーブル構造、RLS ポリシー、トリガーなど）
+- `schema.sql`の実行（テーブル構造、RLS ポリシー、トリガーなど）
 
 ## 開発環境
 
 1. データベースの初期化
 
 ```bash
-# initial_setup.sqlとseed.sqlを実行
+# スキーマとテストデータを適用
 supabase db reset
 ```
 
 このコマンドは以下の処理を実行します：
 
-- `initial_setup.sql`の実行（テーブル構造、RLS ポリシー、トリガーなど）
-- `seed.sql`の実行（テストデータの投入）
+- `schema.sql`の実行（テーブル構造、RLS ポリシー、トリガーなど）
+- `test_data.sql`の実行（テストデータの投入）
 
 ## テーブル構造
 
@@ -59,6 +59,26 @@ create table if not exists public.payments (
 );
 ```
 
+#### payments テーブルのカラム説明
+
+- `id`: 支払い ID（UUID）
+- `contractor_id`: 契約者 ID（外部キー）
+- `amount`: 支払い金額（円）
+- `year`: 支払い年
+- `month`: 支払い月
+- `paid_at`: 支払い完了日時
+- `stripe_payment_intent_id`: Stripe 決済 ID
+- `stripe_session_id`: Stripe Checkout セッション ID（支払い完了後のリダイレクト先の特定に使用）
+- `created_at`: レコード作成日時
+- `updated_at`: レコード更新日時
+
+## 支払い完了時の処理フロー
+
+1. Stripe Webhook が支払い完了を通知
+2. Webhook ハンドラーが`stripe_session_id`を使用して支払い情報を特定
+3. 支払い情報をデータベースに保存
+4. 契約者を支払い完了ページにリダイレクト
+
 ## セキュリティ設定
 
 ### RLS ポリシー
@@ -75,5 +95,6 @@ create table if not exists public.payments (
 
 - 本番環境では、必ずバックアップを取得してから`db reset`を実行してください
 - 本番環境では`--no-seed`オプションを使用して、テストデータを投入しないようにしてください
-- 開発環境では`seed.sql`を使用して、テストデータを投入してください
-- スキーマの変更は`initial_setup.sql`で管理されています
+- 開発環境では`test_data.sql`を使用して、テストデータを投入してください
+- スキーマの変更は`schema.sql`で管理されています
+- `stripe_session_id`は支払い完了後のリダイレクト先の特定に使用されるため、必ず保存してください

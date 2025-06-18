@@ -12,7 +12,7 @@
 1. リポジトリのクローン
 
 ```bash
-git clone <repository-url>
+git clone https://github.com/hiraku00/parking-management.git
 cd parking-management
 ```
 
@@ -23,12 +23,26 @@ npm install
 ```
 
 3. 環境変数の設定
-   `.env`ファイルを作成し、以下の変数を設定：
+
+### フロントエンド（React）用
+
+`.env`ファイルを作成し、以下の変数を設定：
 
 ```env
 VITE_SUPABASE_URL=your_supabase_url
 VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
 VITE_STRIPE_PUBLISHABLE_KEY=your_stripe_publishable_key
+```
+
+### Supabase Edge Functions 用
+
+Supabase のダッシュボードで、以下の環境変数を設定：
+
+```env
+FRONTEND_URL=http://localhost:5173  # 開発環境
+STRIPE_SECRET_KEY=sk_test_...
+STRIPE_WEBHOOK_SECRET=whsec_...
+MONTHLY_FEE=3500
 ```
 
 4. Supabase のセットアップ
