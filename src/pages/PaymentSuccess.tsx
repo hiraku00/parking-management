@@ -10,6 +10,7 @@ export default function PaymentSuccess() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    let retryCount = 0;
     const checkPaymentStatus = async () => {
       if (!sessionId) {
         setError("セッションIDが見つかりません");
@@ -18,19 +19,27 @@ export default function PaymentSuccess() {
       }
 
       try {
-        // 支払い情報を取得
-        const { data: payment, error } = await supabase
+        // 支払い情報を複数件取得
+        const { data: payments, error } = await supabase
           .from("payments")
           .select("*, contractors(name)")
-          .eq("stripe_session_id", sessionId)
-          .single();
+          .eq("stripe_session_id", sessionId);
 
-        if (error || !payment) {
+        if (error || !payments || payments.length === 0) {
+          // 3回までリトライ
+          if (retryCount < 3) {
+            retryCount++;
+            setTimeout(checkPaymentStatus, 1000);
+            return;
+          }
           throw new Error("支払い情報の取得に失敗しました");
         }
 
-        // 支払いが完了していない場合は、支払いページにリダイレクト
-        if (payment.status !== "completed") {
+        // 最初のレコードを利用
+        const payment = payments[0];
+
+        // paid_atの有無で判定
+        if (!payment.paid_at) {
           navigate(
             `/contractor/${encodeURIComponent(
               payment.contractors.name
@@ -79,9 +88,11 @@ export default function PaymentSuccess() {
       <div className="min-h-screen flex items-center justify-center bg-gray-100">
         <div className="bg-white p-8 rounded-lg shadow-md max-w-md w-full">
           <h1 className="text-2xl font-bold text-center text-red-600 mb-4">
-            エラーが発生しました
+            決済が完了していません
           </h1>
-          <p className="text-center text-gray-600 mb-4">{error}</p>
+          <p className="text-center text-gray-600 mb-4">
+            決済が完了していません。決済完了後に自動でページが切り替わります。
+          </p>
         </div>
       </div>
     );

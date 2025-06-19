@@ -1,12 +1,26 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { supabase } from "../lib/supabase";
+import { getUnpaidMonthsFromData } from "../utils/unpaidMonths";
 
 interface Contractor {
   id: string;
   name: string;
   parking_number: string;
+  contract_start_year: number;
+  contract_start_month: number;
+  contract_end_year?: number | null;
+  contract_end_month?: number | null;
   created_at: string;
+  payments?: Payment[];
+}
+
+interface Payment {
+  id: string;
+  year: number;
+  month: number;
+  amount: number;
+  paid_at: string | null;
 }
 
 export default function OwnerDashboard() {
@@ -19,14 +33,18 @@ export default function OwnerDashboard() {
       try {
         const { data, error } = await supabase
           .from("contractors")
-          .select("*")
+          .select("*, payments(*)")
           .order("created_at", { ascending: false });
 
         if (error) {
           throw error;
         }
 
-        setContractors(data || []);
+        setContractors(
+          (data || []).sort((a, b) => {
+            return Number(a.parking_number) - Number(b.parking_number);
+          })
+        );
       } catch (err) {
         console.error("Error fetching contractors:", err);
         setError(
@@ -91,7 +109,13 @@ export default function OwnerDashboard() {
                       駐車スペース番号
                     </th>
                     <th className="px-6 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      登録日
+                      契約開始
+                    </th>
+                    <th className="px-6 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      契約終了
+                    </th>
+                    <th className="px-6 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      未払い
                     </th>
                     <th className="px-6 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       アクション
@@ -108,7 +132,33 @@ export default function OwnerDashboard() {
                         {contractor.parking_number}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {new Date(contractor.created_at).toLocaleDateString()}
+                        {contractor.contract_start_year}年
+                        {contractor.contract_start_month}月
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {contractor.contract_end_year
+                          ? `${contractor.contract_end_year}年${contractor.contract_end_month}月`
+                          : "-"}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {(() => {
+                          const unpaidMonths = getUnpaidMonthsFromData(
+                            contractor,
+                            contractor.payments || []
+                          );
+                          const hasUnpaid = unpaidMonths.length > 0;
+                          return (
+                            <span
+                              className={`inline-block px-2 py-1 text-xs font-semibold rounded ${
+                                hasUnpaid
+                                  ? "bg-red-100 text-red-800"
+                                  : "bg-green-100 text-green-800"
+                              }`}
+                            >
+                              {hasUnpaid ? "未払いあり" : "未払いなし"}
+                            </span>
+                          );
+                        })()}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm">
                         <Link

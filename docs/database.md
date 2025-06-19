@@ -36,8 +36,14 @@ create table if not exists public.contractors (
   id uuid default gen_random_uuid() primary key,
   name text unique not null,
   parking_number text not null,
+  contract_start_year integer not null,
+  contract_start_month integer not null,
+  contract_end_year integer,
+  contract_end_month integer,
   created_at timestamp with time zone default now() not null,
-  updated_at timestamp with time zone default now() not null
+  updated_at timestamp with time zone default now() not null,
+  check (contract_start_month between 1 and 12),
+  check (contract_end_month between 1 and 12 or contract_end_month is null)
 );
 ```
 
@@ -57,6 +63,39 @@ create table if not exists public.payments (
   updated_at timestamp with time zone default now() not null,
   unique(contractor_id, year, month)
 );
+```
+
+### [view] payment_status
+```sql
+create or replace view public.payment_status as
+select
+  c.id as contractor_id,
+  c.name,
+  c.parking_number,
+  c.contract_start_year,
+  c.contract_start_month,
+  c.contract_end_year,
+  c.contract_end_month,
+  p.year,
+  p.month,
+  p.amount,
+  p.paid_at,
+  case
+    when p.paid_at is not null then 'paid'
+    when p.year < extract(year from now()) or
+         (p.year = extract(year from now()) and p.month <= extract(month from now()))
+    then 'unpaid'
+    else 'future'
+  end as status
+from
+  public.contractors c
+  left join public.payments p on c.id = p.contractor_id
+where
+  p.year >= c.contract_start_year and
+  (p.year > c.contract_start_year or p.month >= c.contract_start_month) and
+  (c.contract_end_year is null or
+   p.year < c.contract_end_year or
+   (p.year = c.contract_end_year and p.month <= c.contract_end_month));
 ```
 
 #### payments テーブルのカラム説明
