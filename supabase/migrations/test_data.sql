@@ -4,14 +4,14 @@ delete from public.contractors;
 
 -- テストデータの追加
 -- 契約者データ
-insert into public.contractors (id, name, parking_number, contract_start_year, contract_start_month, contract_end_year, contract_end_month)
+insert into public.contractors (id, name, parking_number, contract_start_year, contract_start_month, contract_end_year, contract_end_month, monthly_fee)
 values
-  ('11111111-1111-1111-1111-111111111111', 'test1', '1', 2025, 1, null, null),
-  ('22222222-2222-2222-2222-222222222222', 'test2', '2', 2025, 3, null, null),
-  ('33333333-3333-3333-3333-333333333333', 'test3', '3', 2025, 5, 2025, 5),
-  ('44444444-4444-4444-4444-444444444444', 'test4', '4', 2025, 4, null, null),
-  ('55555555-5555-5555-5555-555555555555', 'test5', '5', 2025, 6, null, null),
-  ('66666666-6666-6666-6666-666666666666', 'test6', '3', 2025, 6, null, null);
+  ('11111111-1111-1111-1111-111111111111', 'test1', '1', 2025, 1, null, null, 3500),
+  ('22222222-2222-2222-2222-222222222222', 'test2', '2', 2025, 3, null, null, 3500),
+  ('33333333-3333-3333-3333-333333333333', 'test3', '3', 2025, 5, 2025, 5, 3500),
+  ('44444444-4444-4444-4444-444444444444', 'test4', '4', 2025, 4, null, null, 3500),
+  ('55555555-5555-5555-5555-555555555555', 'test5', '5', 2025, 6, null, null, 3500),
+  ('66666666-6666-6666-6666-666666666666', 'test6', '3', 2025, 6, null, null, 3500);
 
 -- 支払いデータ
 insert into public.payments (contractor_id, amount, year, month, paid_at)
