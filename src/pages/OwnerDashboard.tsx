@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { getUnpaidMonthsFromData } from "../utils/unpaidMonths";
+import ContractorCreateForm from "../components/ContractorCreateForm";
 
 interface Contractor {
   id: string;
@@ -27,36 +28,35 @@ export default function OwnerDashboard() {
   const [contractors, setContractors] = useState<Contractor[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+
+  const fetchContractors = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("contractors")
+        .select("*, payments(*)")
+        .order("created_at", { ascending: false });
+
+      if (error) {
+        throw error;
+      }
+
+      setContractors(
+        (data || []).sort((a, b) => {
+          return Number(a.parking_number) - Number(b.parking_number);
+        })
+      );
+    } catch (err) {
+      console.error("Error fetching contractors:", err);
+      setError(
+        err instanceof Error ? err.message : "契約者データの取得に失敗しました"
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    async function fetchContractors() {
-      try {
-        const { data, error } = await supabase
-          .from("contractors")
-          .select("*, payments(*)")
-          .order("created_at", { ascending: false });
-
-        if (error) {
-          throw error;
-        }
-
-        setContractors(
-          (data || []).sort((a, b) => {
-            return Number(a.parking_number) - Number(b.parking_number);
-          })
-        );
-      } catch (err) {
-        console.error("Error fetching contractors:", err);
-        setError(
-          err instanceof Error
-            ? err.message
-            : "契約者データの取得に失敗しました"
-        );
-      } finally {
-        setLoading(false);
-      }
-    }
-
     fetchContractors();
   }, []);
 
@@ -91,8 +91,38 @@ export default function OwnerDashboard() {
   return (
     <div className="min-h-screen bg-gray-100">
       <div className="container mx-auto px-4 py-8">
+        <div className="flex justify-between items-center mb-4">
+          <h1 className="text-2xl font-bold text-gray-900">契約者一覧</h1>
+          <button
+            className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+            onClick={() => setShowCreateModal(true)}
+          >
+            ＋新規契約者登録
+          </button>
+        </div>
+        {showCreateModal && (
+          <div className="fixed inset-0 bg-gray-700 bg-opacity-40 flex items-center justify-center z-50">
+            <div className="bg-white rounded-xl shadow-xl p-8 w-full max-w-lg relative text-gray-900 border border-gray-200">
+              <button
+                className="absolute top-3 right-3 bg-red-500 hover:bg-red-600 text-white rounded-full w-9 h-9 flex items-center justify-center text-xl font-bold shadow focus:outline-none"
+                onClick={() => setShowCreateModal(false)}
+                aria-label="閉じる"
+              >
+                ×
+              </button>
+              <h2 className="text-xl font-bold mb-6 text-gray-900">
+                新規契約者登録
+              </h2>
+              <ContractorCreateForm
+                onSuccess={() => {
+                  setShowCreateModal(false);
+                  fetchContractors();
+                }}
+              />
+            </div>
+          </div>
+        )}
         <div className="bg-white shadow-md rounded-lg p-6 mb-6">
-          <h1 className="text-2xl font-bold text-gray-900 mb-6">契約者一覧</h1>
           {contractors.length === 0 ? (
             <div className="bg-white shadow-md rounded-lg p-6 text-center">
               <p className="text-gray-500">契約者が登録されていません</p>

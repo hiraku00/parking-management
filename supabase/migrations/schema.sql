@@ -21,6 +21,7 @@ create table if not exists public.contractors (
   contract_start_month integer not null,
   contract_end_year integer,
   contract_end_month integer,
+  monthly_fee integer not null default 0,
   created_at timestamp with time zone default now() not null,
   updated_at timestamp with time zone default now() not null,
   check (contract_start_month between 1 and 12),
@@ -95,6 +96,11 @@ create policy "Contractors can insert their own payments"
   on public.payments for insert
   with check (auth.uid() = contractor_id);
 
+-- 開発用: 全員insert許可（本番では削除・修正すること）
+create policy "Allow insert for all"
+  on public.contractors for inserte
+  with check (true);
+
 -- トリガーの設定
 drop trigger if exists set_updated_at on public.contractors;
 drop trigger if exists set_updated_at on public.payments;
@@ -108,3 +114,4 @@ create trigger set_updated_at
   before update on public.payments
   for each row
   execute function public.set_updated_at();
+
