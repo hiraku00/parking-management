@@ -3,6 +3,10 @@ import { useParams } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { createCheckoutSession } from "../lib/stripe-checkout";
 import type { Contractor, Payment } from "@/types";
+import { getUnpaidMonthsFromData } from "../utils/unpaidMonths";
+import { UnpaidMonthsGrid } from "../components/UnpaidMonthsGrid";
+import { PaymentHistoryTable } from "../components/PaymentHistoryTable";
+import { ContractorInfoGrid } from "../components/ContractorInfoGrid";
 
 export default function ContractorPage() {
   const { name } = useParams<{ name: string }>();
@@ -75,6 +79,8 @@ export default function ContractorPage() {
     console.log("Download PDF for payment:", payment);
   };
 
+  const unpaidMonths = getUnpaidMonthsFromData(contractor, payments);
+
   if (error) {
     return (
       <div className="min-h-screen bg-gray-50 w-full flex items-center justify-center p-4">
@@ -104,56 +110,28 @@ export default function ContractorPage() {
     <div className="min-h-screen bg-gray-50 w-full">
       {/* ヘッダー */}
       <header className="w-full bg-white border-b border-gray-200 mb-8">
-        <div className="w-full py-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">
-            {contractor.name}様
+        <div className="w-full py-8 container mx-auto px-4">
+          <h1 className="text-3xl font-bold text-gray-900">
+            支払い画面
           </h1>
-          <p className="text-gray-600">
-            駐車場番号: {contractor.parking_number}
-          </p>
         </div>
       </header>
 
-      <main className="w-full">
-        <div className="w-full">
-          {/* 支払い状況 */}
-          <section className="bg-white rounded-lg shadow-sm p-6 mb-8 px-4 sm:px-8">
-            <h2 className="text-xl font-semibold mb-4">支払い状況</h2>
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-              {Array.from({ length: 6 }, (_, i) => {
-                const date = new Date();
-                date.setMonth(date.getMonth() - i);
-                const year = date.getFullYear();
-                const month = date.getMonth() + 1;
-                const payment = payments.find(
-                  (p) => p.year === year && p.month === month
-                );
-                return (
-                  <div
-                    key={`${year}-${month}`}
-                    className={`rounded-lg border text-center py-4 px-2 text-base font-medium
-                      ${
-                        payment
-                          ? "bg-green-50 border-green-200 text-green-700"
-                          : "bg-yellow-50 border-yellow-200 text-yellow-700"
-                      }
-                    `}
-                  >
-                    <div>
-                      {year}年{month}月
-                    </div>
-                    <div className="mt-1 text-sm font-bold">
-                      {payment ? "支払済" : "未払い"}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </section>
 
+      <main className="w-full container mx-auto px-4">
+        {/* 契約者情報 */}
+        <div className="bg-white shadow-md rounded-lg p-6 mb-6">
+          <h1 className="text-xl font-bold text-gray-900 mb-6">契約者情報</h1>
+          <ContractorInfoGrid contractor={contractor} />
+        </div>
+
+        <div className="w-full">e
           {/* 支払いフォーム */}
-          <section className="bg-white rounded-lg shadow-sm p-6 mb-8 px-4 sm:px-8">
-            <h2 className="text-xl font-semibold mb-4">支払い</h2>
+          {/* <section className="bg-white rounded-lg shadow-sm p-6 mb-8 px-4 sm:px-8"> */}
+          <section className="bg-white shadow-md rounded-lg p-6 mb-6">
+            <h1 className="text-xl font-bold text-gray-900 mb-6">
+              支払い手続き
+            </h1>
             <form className="flex flex-col sm:flex-row items-center gap-4">
               <div className="w-full sm:w-auto">
                 <label
@@ -167,10 +145,13 @@ export default function ContractorPage() {
                   value={selectedMonths}
                   onChange={(e) => setSelectedMonths(Number(e.target.value))}
                   className="w-full sm:w-40 border-gray-300 rounded-lg bg-white text-gray-900 focus:border-blue-500 focus:ring-blue-500 px-3 py-2"
-                  disabled={loading}
+                  disabled={loading || unpaidMonths.length === 0}
                   aria-label="支払月数を選択"
                 >
-                  {[1, 2, 3, 4, 5, 6].map((num) => (
+                  {Array.from(
+                    { length: Math.max(1, unpaidMonths.length) },
+                    (_, i) => i + 1
+                  ).map((num) => (
                     <option key={num} value={num}>
                       {num}ヶ月
                     </option>
@@ -180,78 +161,30 @@ export default function ContractorPage() {
               <button
                 type="button"
                 onClick={handlePayment}
-                disabled={loading}
+                disabled={loading || unpaidMonths.length === 0}
                 className="w-full sm:w-auto bg-blue-600 text-white rounded-lg px-6 py-3 text-lg font-semibold hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
-                aria-label={`${selectedMonths}ヶ月分を支払う`}
+                aria-label={
+                  unpaidMonths.length === 0
+                    ? "未払いがありません"
+                    : `${selectedMonths}ヶ月分を支払う`
+                }
               >
-                {loading ? "処理中..." : `${selectedMonths}ヶ月分を支払う`}
+                {unpaidMonths.length === 0
+                  ? "未払いがありません"
+                  : loading
+                  ? "処理中..."
+                  : `${selectedMonths}ヶ月分を支払う`}
               </button>
             </form>
           </section>
 
+          {/* 未払い年月 */}
+          {contractor && <UnpaidMonthsGrid unpaidMonths={unpaidMonths} />}
+
           {/* 支払い履歴 */}
           <section className="bg-white rounded-lg shadow-sm p-6 mb-8 px-4 sm:px-8">
-            <h2 className="text-xl font-semibold mb-4">支払い履歴</h2>
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead>
-                  <tr>
-                    <th className="px-6 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      年月
-                    </th>
-                    <th className="px-6 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      金額
-                    </th>
-                    <th className="px-6 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      支払日
-                    </th>
-                    <th className="px-6 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      アクション
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {payments.map((payment) => (
-                    <tr key={payment.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {payment.year}年{payment.month}月
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        ¥{payment.amount.toLocaleString()}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {payment.paid_at
-                          ? new Date(payment.paid_at).toLocaleDateString()
-                          : "-"}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm">
-                        {payment.paid_at && (
-                          <button
-                            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-                            onClick={() => handleDownloadPDF(payment)}
-                          >
-                            <svg
-                              className="mr-2 h-4 w-4"
-                              fill="none"
-                              stroke="currentColor"
-                              viewBox="0 0 24 24"
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth="2"
-                                d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                              />
-                            </svg>
-                            PDFダウンロード
-                          </button>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <h1 className="text-xl font-bold text-gray-900 mb-6">支払い履歴</h1>
+            <PaymentHistoryTable payments={payments} />
           </section>
         </div>
       </main>
