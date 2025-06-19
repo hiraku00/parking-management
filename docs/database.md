@@ -34,12 +34,12 @@ supabase db reset
 ```sql
 create table if not exists public.contractors (
   id uuid default gen_random_uuid() primary key,
-  name text unique not null,
-  parking_number text not null,
-  contract_start_year integer not null,
-  contract_start_month integer not null,
-  contract_end_year integer,
-  contract_end_month integer,
+  name text unique not null, -- 契約者名
+  parking_number text not null, -- 駐車場番号
+  contract_start_year integer not null, -- 契約開始年
+  contract_start_month integer not null, -- 契約開始月(1-12)
+  contract_end_year integer, -- 契約終了年（NULLなら継続中）
+  contract_end_month integer, -- 契約終了月（NULLなら継続中）
   created_at timestamp with time zone default now() not null,
   updated_at timestamp with time zone default now() not null,
   check (contract_start_month between 1 and 12),
@@ -52,13 +52,13 @@ create table if not exists public.contractors (
 ```sql
 create table if not exists public.payments (
   id uuid default gen_random_uuid() primary key,
-  contractor_id uuid references public.contractors(id) not null,
-  amount integer not null,
-  year integer not null,
-  month integer not null,
-  paid_at timestamp with time zone,
-  stripe_payment_intent_id text,
-  stripe_session_id text,
+  contractor_id uuid references public.contractors(id) not null, -- 契約者ID
+  amount integer not null, -- 支払い金額
+  year integer not null, -- 支払い年
+  month integer not null, -- 支払い月
+  paid_at timestamp with time zone, -- 支払い完了日時
+  stripe_payment_intent_id text, -- Stripe決済ID
+  stripe_session_id text, -- StripeセッションID
   created_at timestamp with time zone default now() not null,
   updated_at timestamp with time zone default now() not null,
   unique(contractor_id, year, month)
@@ -66,6 +66,7 @@ create table if not exists public.payments (
 ```
 
 ### [view] payment_status
+
 ```sql
 create or replace view public.payment_status as
 select
@@ -98,18 +99,27 @@ where
    (p.year = c.contract_end_year and p.month <= c.contract_end_month));
 ```
 
-#### payments テーブルのカラム説明
+## カラム説明
 
-- `id`: 支払い ID（UUID）
-- `contractor_id`: 契約者 ID（外部キー）
-- `amount`: 支払い金額（円）
-- `year`: 支払い年
-- `month`: 支払い月
-- `paid_at`: 支払い完了日時
-- `stripe_payment_intent_id`: Stripe 決済 ID
-- `stripe_session_id`: Stripe Checkout セッション ID（支払い完了後のリダイレクト先の特定に使用）
-- `created_at`: レコード作成日時
-- `updated_at`: レコード更新日時
+#### contractors
+
+- id: 契約者 ID（UUID, PK）
+- name: 契約者名（ユニーク）
+- parking_number: 駐車場番号
+- contract_start_year/month: 契約開始年月
+- contract_end_year/month: 契約終了年月（NULL なら継続中）
+- created_at/updated_at: レコード作成・更新日時
+
+#### payments
+
+- id: 支払い ID（UUID, PK）
+- contractor_id: 契約者 ID（FK）
+- amount: 支払い金額（円）
+- year/month: 支払い年月
+- paid_at: 支払い完了日時（NULL なら未払い）
+- stripe_payment_intent_id: Stripe 決済 ID
+- stripe_session_id: Stripe セッション ID
+- created_at/updated_at: レコード作成・更新日時
 
 ## 支払い完了時の処理フロー
 

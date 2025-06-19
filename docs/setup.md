@@ -79,3 +79,5 @@ supabase functions deploy stripe-webhook --no-verify-jwt
 1. Stripe Webhook は署名検証で保護されている
 2. Webhook のエンドポイントは公開されている必要がある
 3. 不正なリクエストは自動的に拒否される
+
+- DB スキーマやテストデータは`supabase/migrations/schema.sql`、`test_data.sql`で管理しています。
