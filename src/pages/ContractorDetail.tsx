@@ -9,6 +9,7 @@ import { UnpaidMonthsGrid } from "../components/UnpaidMonthsGrid";
 import { PaymentHistoryTable } from "../components/PaymentHistoryTable";
 import { ContractorInfoGrid } from "../components/ContractorInfoGrid";
 
+
 interface Contractor {
   id: string;
   name: string;
@@ -44,6 +45,24 @@ function useUnpaidMonths(contractor: Contractor | null, payments: Payment[]) {
 }
 
 export default function ContractorDetail() {
+  const refetchContractor = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const { data: contractorData, error: contractorError } = await supabase
+        .from("contractors")
+        .select("*")
+        .eq("name", decodeURIComponent(name || ""))
+        .single();
+      if (contractorError) throw contractorError;
+      setContractor(contractorData);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "データの取得に失敗しました");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const { name } = useParams<{ name: string }>();
   const [contractor, setContractor] = useState<Contractor | null>(null);
   const [payments, setPayments] = useState<Payment[]>([]);
@@ -152,6 +171,7 @@ export default function ContractorDetail() {
         <div className="bg-white shadow-md rounded-lg p-6 mb-6">
           <h1 className="text-xl font-bold text-gray-900 mb-6">契約者情報</h1>
           <ContractorInfoGrid contractor={contractor} />
+          
         </div>
 
         {/* 未払い年月 */}

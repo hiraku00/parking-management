@@ -64,6 +64,10 @@ supabase db reset
 npm run dev
 ```
 
+## 補足: 契約者詳細ページへの遷移
+
+契約者一覧画面の「詳細」ボタンを押すと、該当契約者の詳細ページ（/contractor/{契約者名}）に遷移します。
+
 ## トラブルシューティング
 
 ### Supabase Functions の認証エラー

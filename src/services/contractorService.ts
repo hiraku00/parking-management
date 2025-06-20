@@ -14,6 +14,66 @@ function isFutureOrNull(
     return endYear > nowYear || (endYear === nowYear && endMonth >= nowMonth);
 }
 
+/**
+ * 指定したcontractorの情報を更新する
+ */
+export async function updateContractorInfo(
+  contractorId: string,
+  updates: Partial<Omit<Contractor, "id" | "created_at">>
+): Promise<Contractor> {
+  const { data, error } = await supabase
+    .from("contractors")
+    .update(updates)
+    .eq("id", contractorId)
+    .select();
+  if (error) {
+    throw new Error(error.message);
+  }
+  if (!data || data.length === 0) {
+    throw new Error('更新後のデータが取得できませんでした。');
+  }
+  return data[0] as Contractor;
+}
+
+/**
+ * 指定したcontractorを削除する
+ */
+export async function deleteContractor(
+  contractorId: string
+): Promise<string> {
+  const { error } = await supabase
+    .from("contractors")
+    .delete()
+    .eq("id", contractorId);
+  if (error) {
+    throw new Error(error.message);
+  }
+  return contractorId;
+}
+
+/**
+ * 指定したcontractorの月額料金を更新する
+ */
+export async function updateContractorMonthlyFee(
+  contractorId: string,
+  newFee: number
+): Promise<Contractor> {
+  const { data, error } = await supabase
+    .from("contractors")
+    .update({ monthly_fee: newFee })
+    .eq("id", contractorId)
+    .select()
+    .single();
+
+  if (error) {
+    throw new Error(error.message);
+  }
+  return data as Contractor;
+}
+
+/**
+ * 契約者を新規作成する
+ */
 export async function createContractor(
     input: CreateContractorInput,
 ): Promise<Contractor> {
