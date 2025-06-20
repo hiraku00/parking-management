@@ -121,6 +121,10 @@ where
 - stripe_session_id: Stripe セッション ID
 - created_at/updated_at: レコード作成・更新日時
 
+## 画面遷移仕様補足
+
+契約者一覧画面の「詳細」ボタンを押すと、該当契約者の詳細ページ（/contractor/{契約者名}）に遷移します。
+
 ## 支払い完了時の処理フロー
 
 1. Stripe Webhook が支払い完了を通知

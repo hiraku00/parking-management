@@ -98,8 +98,23 @@ create policy "Contractors can insert their own payments"
 
 -- 開発用: 全員insert許可（本番では削除・修正すること）
 create policy "Allow insert for all"
-  on public.contractors for inserte
+  on public.contractors for insert
   with check (true);
+
+-- 開発用: 全員delete許可（本番では削除・修正すること）
+create policy "Allow delete for all"
+  on public.contractors for delete
+  using (true);
+
+-- 開発用: 全員select許可（本番では修正推奨）
+create policy "Allow select for all"
+  on public.contractors for select
+  using (true);
+
+-- 開発用: 全員update許可（本番では修正推奨）
+create policy "Allow update for all"
+  on public.contractors for update
+  using (true);
 
 -- トリガーの設定
 drop trigger if exists set_updated_at on public.contractors;
