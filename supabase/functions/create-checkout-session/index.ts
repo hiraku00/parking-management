@@ -4,37 +4,39 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.0";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, stripe-signature",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type, stripe-signature",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
   "Access-Control-Allow-Credentials": "true",
 };
 
 // デバッグログ用の関数
 const debugLog = (message: string, data?: any) => {
-  console.log(`[DEBUG] ${message}`, data ? JSON.stringify(data, null, 2) : '');
+  console.log(`[DEBUG] ${message}`, data ? JSON.stringify(data, null, 2) : "");
 };
 
 const stripeSecretKey = Deno.env.get("STRIPE_SECRET_KEY");
-debugLog('Stripe Secret Key exists:', !!stripeSecretKey);
-debugLog('All environment variables:', {
+debugLog("Stripe Secret Key exists:", !!stripeSecretKey);
+debugLog("All environment variables:", {
   FRONTEND_URL: Deno.env.get("FRONTEND_URL"),
   STRIPE_SECRET_KEY: Deno.env.get("STRIPE_SECRET_KEY") ? "exists" : "missing",
   SUPABASE_URL: Deno.env.get("SUPABASE_URL") ? "exists" : "missing",
-  SUPABASE_SERVICE_ROLE_KEY: Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ? "exists" : "missing",
-  MONTHLY_FEE: Deno.env.get("MONTHLY_FEE"),
+  SUPABASE_SERVICE_ROLE_KEY: Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")
+    ? "exists"
+    : "missing",
 });
 
 if (!stripeSecretKey) {
   throw new Error("Missing Stripe secret key");
 }
 const stripe = new Stripe(stripeSecretKey, {
-  apiVersion: '2025-05-28.basil',
+  apiVersion: "2025-05-28.basil",
   httpClient: Stripe.createFetchHttpClient(),
 });
 
 const supabaseClient = createClient(
   Deno.env.get("SUPABASE_URL") ?? "",
-  Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
+  Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
 );
 
 serve(async (req) => {
@@ -44,26 +46,21 @@ serve(async (req) => {
 
   try {
     const body = await req.text();
-    debugLog('Request body:', body);
+    debugLog("Request body:", body);
     const { contractorId, months } = JSON.parse(body);
 
     if (!contractorId || !months) {
       throw new Error("Missing required parameters");
     }
 
-    // 金額はサーバー側で計算
-    const monthlyFee = parseInt(Deno.env.get("MONTHLY_FEE") || "3500");
-    const amount = monthlyFee * months;
-    debugLog('Payment amount:', { monthlyFee, months, amount });
-
-    // 契約者情報の取得
+    // 契約者情報の取得（月額料金も含めて取得）
     const { data: contractor, error: contractorError } = await supabaseClient
       .from("contractors")
-      .select("name, parking_number")
+      .select("name, parking_number, monthly_fee")
       .eq("id", contractorId)
       .single();
 
-    debugLog('Contractor data:', { contractor, error: contractorError });
+    debugLog("Contractor data:", { contractor, error: contractorError });
 
     if (contractorError) {
       throw new Error("Contractor not found");
@@ -72,20 +69,26 @@ serve(async (req) => {
       throw new Error("Contractor not found");
     }
 
+    // 金額は契約者ごとの月額料金を使用（必須項目なのでデフォルト不要）
+    const monthlyFee = contractor.monthly_fee;
+    const amount = monthlyFee * months;
+    debugLog("Payment amount:", { monthlyFee, months, amount });
+
     const frontendUrl = Deno.env.get("FRONTEND_URL");
-    debugLog('FRONTEND_URL:', frontendUrl);
+    debugLog("FRONTEND_URL:", frontendUrl);
 
     if (!frontendUrl) {
       throw new Error("FRONTEND_URL is not set");
     }
 
     const encodedName = encodeURIComponent(contractor.name);
-    const baseSuccessUrl = `${frontendUrl}/contractor/${encodedName}/payment/success`;
+    const baseSuccessUrl =
+      `${frontendUrl}/contractor/${encodedName}/payment/success`;
     const baseCancelUrl = `${frontendUrl}/contractor/${encodedName}`;
     const successUrl = `${baseSuccessUrl}?session_id={CHECKOUT_SESSION_ID}`;
     const cancelUrl = baseCancelUrl;
 
-    debugLog('URLs:', { baseSuccessUrl, baseCancelUrl, successUrl, cancelUrl });
+    debugLog("URLs:", { baseSuccessUrl, baseCancelUrl, successUrl, cancelUrl });
 
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ["card"],
@@ -111,22 +114,22 @@ serve(async (req) => {
       },
     });
 
-    debugLog('Stripe session created:', { sessionId: session.id });
+    debugLog("Stripe session created:", { sessionId: session.id });
 
     return new Response(
       JSON.stringify({
-        sessionId: session.id
+        sessionId: session.id,
       }),
       {
         headers: {
           ...corsHeaders,
-          "Content-Type": "application/json"
+          "Content-Type": "application/json",
         },
         status: 200,
-      }
+      },
     );
   } catch (error) {
-    debugLog('Error occurred:', { message: error.message, stack: error.stack });
+    debugLog("Error occurred:", { message: error.message, stack: error.stack });
     return new Response(
       JSON.stringify({
         error: error.message,
@@ -134,10 +137,10 @@ serve(async (req) => {
       {
         headers: {
           ...corsHeaders,
-          "Content-Type": "application/json"
+          "Content-Type": "application/json",
         },
         status: 400,
-      }
+      },
     );
   }
 });
