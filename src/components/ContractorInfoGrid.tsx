@@ -8,6 +8,7 @@ interface ContractorInfoGridProps {
     contract_start_month: number;
     contract_end_year?: number | null;
     contract_end_month?: number | null;
+    monthly_fee: number;
   };
 }
 
@@ -38,6 +39,12 @@ export const ContractorInfoGrid: React.FC<ContractorInfoGridProps> = ({
           {contractor.contract_end_year && contractor.contract_end_month
             ? `${contractor.contract_end_year}年${contractor.contract_end_month}月`
             : "-"}
+        </p>
+      </div>
+      <div>
+        <p className="text-sm text-gray-500">月額料金</p>
+        <p className="text-lg font-medium text-gray-900">
+          {contractor.monthly_fee?.toLocaleString()} 円
         </p>
       </div>
     </div>

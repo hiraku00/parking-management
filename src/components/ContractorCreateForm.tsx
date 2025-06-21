@@ -47,9 +47,20 @@ export default function ContractorCreateForm({
         !form.parking_number ||
         !form.contract_start_year ||
         !form.contract_start_month ||
-        !form.monthly_fee
+        form.monthly_fee === null ||
+        form.monthly_fee === undefined
       ) {
         setError("必須項目をすべて入力してください");
+        setLoading(false);
+        return;
+      }
+      if (!/^[0-9]+$/.test(String(form.parking_number))) {
+        setError("駐車場番号は数字のみ入力してください");
+        setLoading(false);
+        return;
+      }
+      if (form.monthly_fee < 50) {
+        setError("月額料金は50円以上で入力してください");
         setLoading(false);
         return;
       }
@@ -82,6 +93,9 @@ export default function ContractorCreateForm({
         </label>
         <input
           name="parking_number"
+          type="number"
+          inputMode="numeric"
+          pattern="[0-9]*"
           value={form.parking_number}
           onChange={handleChange}
           className="border border-gray-300 rounded-md p-2 w-full focus:ring-2 focus:ring-blue-200 focus:border-blue-400 bg-white text-gray-900"

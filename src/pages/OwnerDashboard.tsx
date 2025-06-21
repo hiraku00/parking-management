@@ -442,7 +442,7 @@ export default function OwnerDashboard() {
                             onClick={() =>
                               navigate(
                                 `/contractor/${encodeURIComponent(
-                                  contractor.name
+                              contractor.name
                                 )}`
                               )
                             }
