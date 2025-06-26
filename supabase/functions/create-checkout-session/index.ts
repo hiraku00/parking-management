@@ -82,13 +82,10 @@ serve(async (req) => {
     }
 
     const encodedName = encodeURIComponent(contractor.name);
-    const baseSuccessUrl =
-      `${frontendUrl}/contractor/${encodedName}/payment/success`;
-    const baseCancelUrl = `${frontendUrl}/contractor/${encodedName}`;
-    const successUrl = `${baseSuccessUrl}?session_id={CHECKOUT_SESSION_ID}`;
-    const cancelUrl = baseCancelUrl;
+    const successUrl = `${frontendUrl}/contractor/${encodedName}/payment/success?session_id={CHECKOUT_SESSION_ID}`;
+    const cancelUrl = `${frontendUrl}/contractor/${encodedName}`;
 
-    debugLog("URLs:", { baseSuccessUrl, baseCancelUrl, successUrl, cancelUrl });
+    debugLog("URLs:", { successUrl, cancelUrl });
 
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ["card"],
