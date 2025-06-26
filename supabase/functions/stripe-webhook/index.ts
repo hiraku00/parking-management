@@ -164,7 +164,7 @@ serve(async (req) => {
       }
 
       // 支払い完了後のリダイレクト先を設定
-      const redirectUrl = `${Deno.env.get('SITE_URL')}/contractor/${encodeURIComponent(contractorName.name)}`;
+      const redirectUrl = `${Deno.env.get('FRONTEND_URL')}/contractor/${encodeURIComponent(contractorName.name)}/payment/success?session_id=${session.id}`;
 
       // 支払い完了後のリダイレクト先を返す
       return new Response(JSON.stringify({
