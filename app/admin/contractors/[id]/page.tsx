@@ -5,12 +5,20 @@ import { getDb } from '@/lib/db/client'
 import { contractors, invoices, paymentAllocations } from '@/lib/db/schema'
 import { formatYen } from '@/lib/domain/money'
 import { formatMonthJa, type YearMonth } from '@/lib/domain/time'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { ContractorForm } from '../contractor-form'
 import { updateContractorAction } from '../actions'
 import { VoidInvoiceForm } from './void-invoice-form'
 import { ArchiveButton } from './archive-button'
 
 const STATUS_LABEL: Record<string, string> = { open: '未払い', paid: '支払済み', void: '免除' }
+const STATUS_VARIANT: Record<string, 'default' | 'secondary' | 'outline'> = {
+  open: 'outline',
+  paid: 'default',
+  void: 'secondary',
+}
 
 export default async function ContractorDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -44,19 +52,17 @@ export default async function ContractorDetailPage({ params }: { params: Promise
 
   return (
     <div className="max-w-3xl space-y-8">
-      <div>
+      <div className="flex items-center gap-3">
         <h1 className="text-2xl font-semibold text-slate-900">{contractor.name}</h1>
-        {contractor.archivedAt && (
-          <span className="mt-1 inline-block rounded-full bg-slate-200 px-2 py-0.5 text-xs text-slate-600">
-            契約終了済み
-          </span>
-        )}
+        {contractor.archivedAt && <Badge variant="secondary">契約終了済み</Badge>}
       </div>
 
       {!contractor.archivedAt && (
-        <section className="space-y-3">
-          <h2 className="font-semibold text-slate-900">基本情報</h2>
-          <div className="rounded-lg border bg-white p-6">
+        <Card>
+          <CardHeader>
+            <CardTitle>基本情報</CardTitle>
+          </CardHeader>
+          <CardContent>
             <ContractorForm
               action={boundUpdateAction}
               showFeeChangeOption
@@ -71,48 +77,56 @@ export default async function ContractorDetailPage({ params }: { params: Promise
                 note: contractor.note ?? '',
               }}
             />
-          </div>
-        </section>
+          </CardContent>
+        </Card>
       )}
 
-      <section className="space-y-3">
-        <h2 className="font-semibold text-slate-900">請求</h2>
-        <div className="overflow-x-auto rounded-lg border bg-white">
-          <table className="min-w-full text-sm">
-            <thead>
-              <tr className="border-b bg-slate-50 text-left text-slate-600">
-                <th className="px-3 py-2 font-medium">対象月</th>
-                <th className="px-3 py-2 font-medium">金額</th>
-                <th className="px-3 py-2 font-medium">入金済み額</th>
-                <th className="px-3 py-2 font-medium">状態</th>
-                <th className="px-3 py-2 font-medium">操作</th>
-              </tr>
-            </thead>
-            <tbody>
+      <Card>
+        <CardHeader>
+          <CardTitle>請求</CardTitle>
+        </CardHeader>
+        <CardContent className="p-0">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>対象月</TableHead>
+                <TableHead>金額</TableHead>
+                <TableHead>入金済み額</TableHead>
+                <TableHead>状態</TableHead>
+                <TableHead>操作</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {invoiceRows.map((inv) => (
-                <tr key={inv.id} className="border-b last:border-0">
-                  <td className="px-3 py-2">{formatMonthJa(inv.month as YearMonth)}</td>
-                  <td className="px-3 py-2">{formatYen(inv.amount)}</td>
-                  <td className="px-3 py-2">{formatYen(appliedByInvoice.get(inv.id) ?? 0)}</td>
-                  <td className="px-3 py-2">{STATUS_LABEL[inv.status]}</td>
-                  <td className="px-3 py-2">
+                <TableRow key={inv.id}>
+                  <TableCell>{formatMonthJa(inv.month as YearMonth)}</TableCell>
+                  <TableCell>{formatYen(inv.amount)}</TableCell>
+                  <TableCell>{formatYen(appliedByInvoice.get(inv.id) ?? 0)}</TableCell>
+                  <TableCell>
+                    <Badge variant={STATUS_VARIANT[inv.status]}>{STATUS_LABEL[inv.status]}</Badge>
+                  </TableCell>
+                  <TableCell>
                     {inv.status === 'open' && (
-                      <VoidInvoiceForm invoiceId={inv.id} contractorId={id} month={inv.month} />
+                      <VoidInvoiceForm
+                        invoiceId={inv.id}
+                        contractorId={id}
+                        month={formatMonthJa(inv.month as YearMonth)}
+                      />
                     )}
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               ))}
               {invoiceRows.length === 0 && (
-                <tr>
-                  <td colSpan={5} className="px-3 py-6 text-center text-slate-400">
+                <TableRow>
+                  <TableCell colSpan={5} className="py-6 text-center text-muted-foreground">
                     請求がまだありません。
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               )}
-            </tbody>
-          </table>
-        </div>
-      </section>
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
 
       {!contractor.archivedAt && (
         <section className="border-t pt-6">

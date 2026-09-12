@@ -1,3 +1,4 @@
+import Link from 'next/link'
 import { appEnv } from '@/lib/env'
 import { getDb } from '@/lib/db/client'
 import { syncInvoices } from '@/lib/services/invoices'
@@ -9,7 +10,7 @@ import {
 } from '@/lib/services/queries'
 import { formatMonthJa } from '@/lib/domain/time'
 import { formatYen } from '@/lib/domain/money'
-import Link from 'next/link'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 
 const CELL_LABEL: Record<MatrixCellStatus, string> = {
   paid: '✅',
@@ -48,7 +49,7 @@ export default async function AdminDashboardPage() {
     <div className="space-y-8">
       <div>
         <h1 className="text-2xl font-semibold text-slate-900">ダッシュボード</h1>
-        <p className="text-sm text-slate-500">{formatMonthJa(kpi.month)}の状況</p>
+        <p className="text-sm text-muted-foreground">{formatMonthJa(kpi.month)}の状況</p>
       </div>
 
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
@@ -67,20 +68,24 @@ export default async function AdminDashboardPage() {
       </div>
 
       {pendingTransfers.length > 0 && (
-        <section className="rounded-lg border border-amber-200 bg-amber-50 p-4">
-          <h2 className="font-semibold text-amber-900">🔔 確認待ちの振込（{pendingTransfers.length}件）</h2>
-          <ul className="mt-2 space-y-1 text-sm text-amber-900">
-            {pendingTransfers.map((t) => (
-              <li key={t.paymentId}>
-                <Link href={`/admin/contractors/${t.contractorId}`} className="underline">
-                  {t.contractorName}
-                </Link>
-                {' — '}
-                {formatYen(t.amount)}（{t.payerName ?? '名義不明'} / {t.paidOn ?? '日付不明'}）
-              </li>
-            ))}
-          </ul>
-        </section>
+        <Card className="border-amber-200 bg-amber-50">
+          <CardHeader>
+            <CardTitle className="text-amber-900">🔔 確認待ちの振込（{pendingTransfers.length}件）</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ul className="space-y-1 text-sm text-amber-900">
+              {pendingTransfers.map((t) => (
+                <li key={t.paymentId}>
+                  <Link href={`/admin/contractors/${t.contractorId}`} className="underline">
+                    {t.contractorName}
+                  </Link>
+                  {' — '}
+                  {formatYen(t.amount)}（{t.payerName ?? '名義不明'} / {t.paidOn ?? '日付不明'}）
+                </li>
+              ))}
+            </ul>
+          </CardContent>
+        </Card>
       )}
 
       <section>
@@ -89,11 +94,11 @@ export default async function AdminDashboardPage() {
           <table className="min-w-full text-sm">
             <thead>
               <tr className="border-b bg-slate-50">
-                <th className="sticky left-0 z-10 bg-slate-50 px-3 py-2 text-left font-medium text-slate-600">
+                <th className="sticky left-0 z-10 bg-slate-50 px-3 py-2 text-left font-medium text-muted-foreground">
                   契約者
                 </th>
                 {matrix.months.map((m) => (
-                  <th key={m} className="px-2 py-2 text-center font-medium text-slate-600">
+                  <th key={m} className="px-2 py-2 text-center font-medium text-muted-foreground">
                     {m.slice(5)}
                   </th>
                 ))}
@@ -119,7 +124,10 @@ export default async function AdminDashboardPage() {
               ))}
               {matrix.rows.length === 0 && (
                 <tr>
-                  <td colSpan={matrix.months.length + 1} className="px-3 py-6 text-center text-slate-400">
+                  <td
+                    colSpan={matrix.months.length + 1}
+                    className="px-3 py-6 text-center text-muted-foreground"
+                  >
                     契約者がまだ登録されていません。
                   </td>
                 </tr>
@@ -133,11 +141,14 @@ export default async function AdminDashboardPage() {
 }
 
 function KpiCard({ label, value, tone }: { label: string; value: string; tone?: 'warn' | 'danger' }) {
-  const toneClass = tone === 'danger' ? 'text-red-600' : tone === 'warn' ? 'text-amber-600' : 'text-slate-900'
+  const toneClass =
+    tone === 'danger' ? 'text-destructive' : tone === 'warn' ? 'text-amber-600' : 'text-slate-900'
   return (
-    <div className="rounded-lg border bg-white p-4">
-      <p className="text-xs font-medium text-slate-500">{label}</p>
-      <p className={`mt-1 text-xl font-semibold ${toneClass}`}>{value}</p>
-    </div>
+    <Card>
+      <CardContent className="p-4">
+        <p className="text-xs font-medium text-muted-foreground">{label}</p>
+        <p className={`mt-1 text-xl font-semibold ${toneClass}`}>{value}</p>
+      </CardContent>
+    </Card>
   )
 }
