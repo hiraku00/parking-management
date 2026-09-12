@@ -28,9 +28,10 @@ check() {
 
 check /api/health 200
 check / 200
-# Access未認証では403（proxy.tsのフォールバック）。エッジのAccess設定が
-# 有効なら、実際にはAccessのログイン画面へリダイレクトされる。
-check /admin 403
+# Access未認証では、エッジのAccess設定が有効ならAccessのログイン画面へ
+# 302リダイレクトされる（本来の状態）。Access自体が未設定/エッジ設定漏れの
+# 場合は、proxy.tsのフォールバックにより403になる。
+check /admin 302
 # Webhookエンドポイントはstripe-signatureが無いリクエストを拒否する。
 # GETメソッド自体は未実装のため405。
 check /api/webhooks/stripe 405 GET
