@@ -1,6 +1,6 @@
-import { and, eq, gte, inArray, isNull, lte } from 'drizzle-orm'
+import { and, desc, eq, gte, inArray, isNull, lte } from 'drizzle-orm'
 import type { Db } from '../db/client'
-import { contractors, invoices, payments, paymentAllocations } from '../db/schema'
+import { contractors, invoices, payments, paymentAllocations, receipts } from '../db/schema'
 import { addMonths, compareYearMonth, currentMonth, monthsBetween, type YearMonth } from '../domain/time'
 
 /** 画面表示用の読み取り専用クエリ（書き込みは lib/services/* の各サービスで行う）。
@@ -185,4 +185,124 @@ function classifyCell(
   if (ctx.appliedAmount > 0) return 'partial'
   if (compareYearMonth(invoice.month as YearMonth, ctx.currentMonth) < 0) return 'overdue'
   return 'unpaid'
+}
+
+// ─── 契約者ポータル向け ─────────────────────────────────────────
+
+export type PortalUnpaidInvoice = {
+  id: string
+  month: YearMonth
+  amount: number
+  remaining: number
+  isOverdue: boolean
+  hasPendingAllocation: boolean
+}
+
+/** 契約者本人の未払い請求（open）を、古い月から順に返す。 */
+export async function getUnpaidInvoicesForContractor(
+  db: Db,
+  contractorId: string,
+  now: Date,
+): Promise<PortalUnpaidInvoice[]> {
+  const month = currentMonth(now)
+  const rows = await db
+    .select()
+    .from(invoices)
+    .where(and(eq(invoices.contractorId, contractorId), eq(invoices.status, 'open')))
+    .orderBy(invoices.month)
+  if (rows.length === 0) return []
+
+  const invoiceIds = rows.map((r) => r.id)
+  const allocationRows = await db
+    .select({
+      invoiceId: paymentAllocations.invoiceId,
+      amount: paymentAllocations.amount,
+      state: paymentAllocations.state,
+    })
+    .from(paymentAllocations)
+    .where(inArray(paymentAllocations.invoiceId, invoiceIds))
+
+  const appliedByInvoice = new Map<string, number>()
+  const pendingInvoiceIds = new Set<string>()
+  for (const a of allocationRows) {
+    if (a.state === 'applied')
+      appliedByInvoice.set(a.invoiceId, (appliedByInvoice.get(a.invoiceId) ?? 0) + a.amount)
+    if (a.state === 'pending') pendingInvoiceIds.add(a.invoiceId)
+  }
+
+  return rows.map((r) => ({
+    id: r.id,
+    month: r.month as YearMonth,
+    amount: r.amount,
+    remaining: r.amount - (appliedByInvoice.get(r.id) ?? 0),
+    isOverdue: compareYearMonth(r.month as YearMonth, month) < 0,
+    hasPendingAllocation: pendingInvoiceIds.has(r.id),
+  }))
+}
+
+export type PortalPaymentHistoryItem = {
+  id: string
+  createdAt: Date
+  amount: number
+  status: (typeof payments.$inferSelect)['status']
+  method: (typeof payments.$inferSelect)['method']
+  rejectReason: string | null
+  months: YearMonth[]
+  hasReceipt: boolean
+}
+
+/** 契約者本人の入金履歴（新しい順）。1件の入金が複数月にまたがる場合、
+ *  対象月をまとめて返す。 */
+export async function getPaymentHistoryForContractor(
+  db: Db,
+  contractorId: string,
+): Promise<PortalPaymentHistoryItem[]> {
+  const paymentRows = await db
+    .select()
+    .from(payments)
+    .where(eq(payments.contractorId, contractorId))
+    .orderBy(desc(payments.createdAt))
+  if (paymentRows.length === 0) return []
+
+  const paymentIds = paymentRows.map((p) => p.id)
+  const allocationRows = await db
+    .select({ paymentId: paymentAllocations.paymentId, invoiceId: paymentAllocations.invoiceId })
+    .from(paymentAllocations)
+    .where(inArray(paymentAllocations.paymentId, paymentIds))
+
+  const invoiceIds = [...new Set(allocationRows.map((a) => a.invoiceId))]
+  const invoiceRows =
+    invoiceIds.length > 0
+      ? await db
+          .select({ id: invoices.id, month: invoices.month })
+          .from(invoices)
+          .where(inArray(invoices.id, invoiceIds))
+      : []
+  const monthByInvoice = new Map(invoiceRows.map((i) => [i.id, i.month as YearMonth]))
+
+  const monthsByPayment = new Map<string, YearMonth[]>()
+  for (const a of allocationRows) {
+    const month = monthByInvoice.get(a.invoiceId)
+    if (!month) continue
+    const list = monthsByPayment.get(a.paymentId) ?? []
+    list.push(month)
+    monthsByPayment.set(a.paymentId, list)
+  }
+
+  const receiptRows = await db
+    .select({ paymentId: receipts.paymentId })
+    .from(receipts)
+    .where(inArray(receipts.paymentId, paymentIds))
+  const paymentsWithReceipt = new Set(receiptRows.map((r) => r.paymentId))
+
+  return paymentRows.map((p) => ({
+    id: p.id,
+    createdAt: p.createdAt,
+    amount: p.amount,
+    status: p.status,
+    method: p.method,
+    rejectReason: p.rejectReason,
+    months: (monthsByPayment.get(p.id) ?? []).sort(),
+    hasReceipt: paymentsWithReceipt.has(p.id),
+  }))
 }
