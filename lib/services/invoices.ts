@@ -232,6 +232,28 @@ export async function shrinkContractPeriod(
   return { ok: true, voidedInvoiceIds: invoiceIds }
 }
 
+/**
+ * ある入金の配分（applied）が確定した後に、その入金が絡む請求の状態を
+ * 再計算する（消込済み額 >= 請求額なら paid、それ未満なら open に戻す）。
+ * `markSucceeded` / `recordManualPayment` のbatchに含めて使う。
+ * 参照: docs/design/04-data-model.md §4.6
+ */
+export function recalculateInvoicesForPaymentStatement(db: Db, paymentId: string, now: Date) {
+  return db.run(sql`
+    WITH settled AS (
+      SELECT i.id, (SELECT COALESCE(SUM(a.amount),0) FROM payment_allocations a
+                    WHERE a.invoice_id = i.id AND a.state = 'applied') >= i.amount AS is_paid
+      FROM invoices i
+      WHERE i.id IN (SELECT invoice_id FROM payment_allocations WHERE payment_id = ${paymentId}) AND i.status != 'void'
+    )
+    UPDATE invoices SET
+      status = CASE WHEN s.is_paid THEN 'paid' ELSE 'open' END,
+      paid_at = CASE WHEN s.is_paid THEN COALESCE(invoices.paid_at, ${now.getTime()}) ELSE NULL END,
+      updated_at = ${now.getTime()}
+    FROM settled s WHERE invoices.id = s.id
+  `)
+}
+
 /** 渡した invoiceId のうち、状態を問わず何らかの配分（pending/applied/released）が
  *  1件でも存在するものの集合を返す。 */
 async function hasAnyAllocation(db: Db, invoiceIds: string[]): Promise<Set<string>> {

@@ -1,3 +1,4 @@
+import { fileURLToPath } from 'node:url'
 import { cloudflareTest } from '@cloudflare/vitest-plugin'
 import { defineConfig } from 'vitest/config'
 
@@ -12,6 +13,11 @@ export default defineConfig({
   test: {
     include: ['lib/services/**/*.test.ts', 'app/api/**/*.integration.test.ts'],
   },
+  // Route Handlerは `@/lib/...` のようなtsconfigのpathエイリアスを使うため、
+  // このテストランナー（vite）にも同じエイリアスを教える。
+  resolve: {
+    alias: { '@': fileURLToPath(new URL('.', import.meta.url)) },
+  },
   plugins: [
     cloudflareTest({
       main: './test/support/worker-stub.ts',
@@ -19,6 +25,9 @@ export default defineConfig({
         compatibilityDate: '2026-09-01',
         compatibilityFlags: ['nodejs_compat'],
         d1Databases: { DB: 'parking-test' },
+        // Stripe Webhookの署名検証テスト用（実際のAPIキーではなく、
+        // ローカルで署名の作成・検証だけを行うためのダミー値）。
+        bindings: { STRIPE_SECRET_KEY: 'sk_test_dummy', STRIPE_WEBHOOK_SECRET: 'whsec_test_dummy' },
       },
     }),
   ],

@@ -37,14 +37,22 @@ export type AuditEntry = {
 /**
  * 監査ログの挿入文を作る。他の書き込みと同じ `db.batch([...])` に含めて、
  * 操作とログ記録を同じトランザクションにする。単体では実行しない。
+ *
+ * `onConflictDoNothing()` は dedupeKey が重複したときに黙って無視するため
+ * （Webhookの再送などでbatch全体が同じ内容で再実行されても安全にするため）。
+ * dedupeKey を指定しない呼び出しでは常にNULLになり、SQLiteのUNIQUE索引は
+ * NULL同士を重複とみなさないため、影響はない。
  */
 export function auditLogInsert(db: Db, entry: AuditEntry) {
-  return db.insert(auditLogs).values({
-    actor: actorLabel(entry.actor),
-    action: entry.action,
-    entityType: entry.entityType,
-    entityId: entry.entityId,
-    detail: entry.detail,
-    dedupeKey: entry.dedupeKey,
-  })
+  return db
+    .insert(auditLogs)
+    .values({
+      actor: actorLabel(entry.actor),
+      action: entry.action,
+      entityType: entry.entityType,
+      entityId: entry.entityId,
+      detail: entry.detail,
+      dedupeKey: entry.dedupeKey,
+    })
+    .onConflictDoNothing()
 }

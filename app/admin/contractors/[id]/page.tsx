@@ -4,7 +4,8 @@ import { appEnv } from '@/lib/env'
 import { getDb } from '@/lib/db/client'
 import { contractors, invoices, paymentAllocations } from '@/lib/db/schema'
 import { formatYen } from '@/lib/domain/money'
-import { formatDateJa, formatMonthJa, type YearMonth } from '@/lib/domain/time'
+import { formatDateJa, formatMonthJa, todayJst, type YearMonth } from '@/lib/domain/time'
+import { getUnpaidInvoicesForContractor } from '@/lib/services/queries'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
@@ -13,6 +14,7 @@ import { updateContractorAction } from '../actions'
 import { VoidInvoiceForm } from './void-invoice-form'
 import { ArchiveButton } from './archive-button'
 import { LoginSection } from './login-section'
+import { RecordPaymentForm } from './record-payment-form'
 
 const STATUS_LABEL: Record<string, string> = { open: '未払い', paid: '支払済み', void: '免除' }
 const STATUS_VARIANT: Record<string, 'default' | 'secondary' | 'outline'> = {
@@ -50,6 +52,10 @@ export default async function ContractorDetailPage({ params }: { params: Promise
     appliedByInvoice.set(a.invoiceId, (appliedByInvoice.get(a.invoiceId) ?? 0) + a.amount)
   }
 
+  const payableInvoices = (await getUnpaidInvoicesForContractor(db, id, now))
+    .filter((i) => !i.hasPendingAllocation)
+    .map((i) => ({ id: i.id, label: formatMonthJa(i.month), remaining: i.remaining }))
+
   const boundUpdateAction = updateContractorAction.bind(null, id)
 
   return (
@@ -84,8 +90,11 @@ export default async function ContractorDetailPage({ params }: { params: Promise
       )}
 
       <Card>
-        <CardHeader>
+        <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle>請求</CardTitle>
+          {!contractor.archivedAt && (
+            <RecordPaymentForm contractorId={id} invoices={payableInvoices} today={todayJst(now)} />
+          )}
         </CardHeader>
         <CardContent className="p-0">
           <Table>
