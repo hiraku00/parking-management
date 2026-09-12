@@ -22,7 +22,7 @@
 
 - [ ] 旧コードを `legacy/` に移す（参照用。Phase 5 の最後に削除する）。**または**、最初のコミットで旧コードを残し、次のコミットで削除する（履歴から参照する）。→ **後者を推奨**（ディレクトリが散らからない）
 - [ ] 削除: `supabase/`, `utils/supabase`, `scripts/*`, `todo_list.txt`, `playwright-report/`, `test-results/`, `DEPLOYMENT.md`, `env.example`, `.github/workflows/keep-supabase-active.yml`
-- [ ] vinext の骨組み: `package.json`（`"type": "module"`, engines node>=24）、`vite.config.ts`（`vinext()` と `cloudflare()`）、`wrangler.jsonc`（§3.3）、`tsconfig.json`（`wrangler types` の出力を含める）、`.node-version`
+- [ ] vinext の骨組み: `package.json`（`"type": "module"`, engines node>=22）、`vite.config.ts`（`vinext()` と `cloudflare()`）、`wrangler.jsonc`（§3.3）、`tsconfig.json`（`wrangler types` の出力を含める）、`.node-version`
 - [ ] `.gitignore` に追加: `.wrangler/`, `dist/`, `.dev.vars*`, `playwright-report/`, `test-results/`, `coverage/`
 - [ ] Tailwind 4 と shadcn/ui を初期化（`components.json` を再生成）。必要な部品: button, input, label, card, badge, table, dialog, alert-dialog, tabs, select, checkbox, radio-group, sonner, skeleton, separator
 - [ ] `lib/env.ts`（型付きの `appEnv()`）
@@ -138,7 +138,7 @@
 
 ## 8.3 CI/CD
 
-`ci.yml`（PRごと）: checkout → Node 24 → `npm ci` → lint → typecheck → `vitest run` → build → Playwright（chromium）
+`ci.yml`（PRごと）: checkout → Node（`.node-version`）→ `npm ci` → lint → typecheck → `vitest run` → build → Playwright（chromium）
 
 `deploy.yml`（mainへのpush）:
 

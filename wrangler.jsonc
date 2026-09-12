@@ -13,7 +13,6 @@
     "not_found_handling": "none",
     "binding": "ASSETS",
   },
-  "cache": { "enabled": true },
   "d1_databases": [
     {
       "binding": "DB",
