@@ -43,6 +43,15 @@ export default async function Home({
             管理者の方 ›
           </Link>
         </div>
+
+        <div className="flex justify-center gap-4 text-xs text-muted-foreground">
+          <Link href="/legal/tokushoho" className="hover:underline">
+            特定商取引法に基づく表記
+          </Link>
+          <Link href="/legal/privacy" className="hover:underline">
+            プライバシーポリシー
+          </Link>
+        </div>
       </div>
     </main>
   )
