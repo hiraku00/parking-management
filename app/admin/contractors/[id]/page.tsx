@@ -4,7 +4,7 @@ import { appEnv } from '@/lib/env'
 import { getDb } from '@/lib/db/client'
 import { contractors, invoices, paymentAllocations } from '@/lib/db/schema'
 import { formatYen } from '@/lib/domain/money'
-import { formatMonthJa, type YearMonth } from '@/lib/domain/time'
+import { formatDateJa, formatMonthJa, type YearMonth } from '@/lib/domain/time'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
@@ -12,6 +12,7 @@ import { ContractorForm } from '../contractor-form'
 import { updateContractorAction } from '../actions'
 import { VoidInvoiceForm } from './void-invoice-form'
 import { ArchiveButton } from './archive-button'
+import { LoginSection } from './login-section'
 
 const STATUS_LABEL: Record<string, string> = { open: '未払い', paid: '支払済み', void: '免除' }
 const STATUS_VARIANT: Record<string, 'default' | 'secondary' | 'outline'> = {
@@ -26,6 +27,7 @@ export default async function ContractorDetailPage({ params }: { params: Promise
 
   const contractor = await db.query.contractors.findFirst({ where: eq(contractors.id, id) })
   if (!contractor) notFound()
+  const now = new Date()
 
   const invoiceRows = await db
     .select()
@@ -127,6 +129,24 @@ export default async function ContractorDetailPage({ params }: { params: Promise
           </Table>
         </CardContent>
       </Card>
+
+      {!contractor.archivedAt && (
+        <Card>
+          <CardHeader>
+            <CardTitle>ログイン</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <LoginSection
+              contractorId={id}
+              loginTokenIssuedAtLabel={
+                contractor.loginTokenIssuedAt ? formatDateJa(contractor.loginTokenIssuedAt) : null
+              }
+              isLocked={Boolean(contractor.lockedUntil && contractor.lockedUntil.getTime() > now.getTime())}
+              lockedUntilLabel={contractor.lockedUntil ? formatDateJa(contractor.lockedUntil) : null}
+            />
+          </CardContent>
+        </Card>
+      )}
 
       {!contractor.archivedAt && (
         <section className="border-t pt-6">

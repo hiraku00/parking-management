@@ -7,6 +7,11 @@ import { appEnv } from '@/lib/env'
 import { getDb } from '@/lib/db/client'
 import { requireOwner } from '@/lib/auth/owner'
 import { archiveContractor, createContractor, updateContractor } from '@/lib/services/contractors'
+import {
+  invalidateContractorSessions,
+  reissueLoginToken,
+  unlockContractor,
+} from '@/lib/services/contractor-auth'
 import { voidInvoice } from '@/lib/services/invoices'
 import { contractorInputSchema, voidInvoiceSchema } from '@/lib/validation'
 
@@ -137,5 +142,45 @@ export async function voidInvoiceAction(
   const contractorId = formData.get('contractorId')
   if (typeof contractorId === 'string') revalidatePath(`/admin/contractors/${contractorId}`)
   revalidatePath('/admin')
+  return {}
+}
+
+/**
+ * ログインカードのQRを再発行する。取得した平文トークンはこの場限りなので、
+ * 印刷ページへ渡すためにURLのクエリに載せて redirect する
+ * （DBにはハッシュしか保存しないため、他に受け渡す手段が無い）。
+ */
+export async function reissueLoginTokenAction(contractorId: string): Promise<{ error?: string }> {
+  const owner = await requireOwner(await headers())
+  const db = getDb(appEnv().DB)
+  const result = await reissueLoginToken(db, contractorId, { kind: 'owner', email: owner.email }, new Date())
+  if (!result.ok) return { error: '契約者が見つかりませんでした。' }
+
+  revalidatePath(`/admin/contractors/${contractorId}`)
+  redirect(`/admin/contractors/${contractorId}/login-card?token=${encodeURIComponent(result.token)}`)
+}
+
+export async function invalidateSessionsAction(contractorId: string): Promise<{ error?: string }> {
+  const owner = await requireOwner(await headers())
+  const db = getDb(appEnv().DB)
+  const result = await invalidateContractorSessions(
+    db,
+    contractorId,
+    { kind: 'owner', email: owner.email },
+    new Date(),
+  )
+  if (!result.ok) return { error: '契約者が見つかりませんでした。' }
+
+  revalidatePath(`/admin/contractors/${contractorId}`)
+  return {}
+}
+
+export async function unlockContractorAction(contractorId: string): Promise<{ error?: string }> {
+  const owner = await requireOwner(await headers())
+  const db = getDb(appEnv().DB)
+  const result = await unlockContractor(db, contractorId, { kind: 'owner', email: owner.email }, new Date())
+  if (!result.ok) return { error: '契約者が見つかりませんでした。' }
+
+  revalidatePath(`/admin/contractors/${contractorId}`)
   return {}
 }

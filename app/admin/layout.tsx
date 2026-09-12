@@ -12,7 +12,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
 
   return (
     <div className="min-h-screen bg-slate-50">
-      <header className="border-b bg-white">
+      <header className="border-b bg-white print:hidden">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3 sm:px-6">
           <nav className="flex items-center gap-6">
             <Link href="/admin" className="text-lg font-semibold text-slate-900">

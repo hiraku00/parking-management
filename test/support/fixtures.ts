@@ -1,5 +1,6 @@
 import type { Db } from '../../lib/db/client'
 import { contractors, payments, paymentAllocations, settings } from '../../lib/db/schema'
+import { normalizeName } from '../../lib/domain/names'
 
 let seq = 0
 function uniqueSuffix() {
@@ -16,10 +17,13 @@ export async function insertContractor(
   overrides: Partial<typeof contractors.$inferInsert> = {},
 ): Promise<string> {
   const id = overrides.id ?? `contractor-${uniqueSuffix()}`
+  const name = overrides.name ?? `テスト契約者${uniqueSuffix()}`
   await db.insert(contractors).values({
     id,
-    name: `テスト契約者${uniqueSuffix()}`,
-    loginKey: `testcontractor${uniqueSuffix()}`,
+    name,
+    // overridesでnameだけ指定された場合も、ログイン照合キーが正しくnameと
+    // 対応するようにする（明示的にloginKeyを渡せば、そちらを優先する）。
+    loginKey: normalizeName(name),
     phone: '09000000000',
     phoneLast4: '0000',
     monthlyFee: 3000,

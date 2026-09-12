@@ -1,22 +1,48 @@
-// Phase 0: 骨組みのみのプレースホルダー。
-// 実際のログイン画面（氏名＋電話番号下4桁 / QRログインへの導線）は
-// Phase 3 で実装する。docs/design/07-screens.md §7.3 を参照。
-export default function Home() {
+import Link from 'next/link'
+import { appEnv } from '@/lib/env'
+import { getDb } from '@/lib/db/client'
+import { getSettings } from '@/lib/services/settings'
+import { LoginForm } from './login-form'
+
+export default async function Home({
+  searchParams,
+}: {
+  searchParams: Promise<{ invalid?: string; expired?: string }>
+}) {
+  const { invalid, expired } = await searchParams
+  const db = getDb(appEnv().DB)
+  const settings = await getSettings(db)
+  const title = settings.businessName ? `${settings.businessName} お支払いページ` : '駐車場 お支払いページ'
+
   return (
-    <main className="flex min-h-screen items-center justify-center bg-slate-50 px-6 py-10 text-slate-950">
-      <div className="max-w-md text-center">
-        <p className="text-sm font-semibold uppercase tracking-wide text-indigo-600">Phase 0</p>
-        <h1 className="mt-2 text-2xl font-semibold">駐車場管理システム</h1>
-        <p className="mt-3 text-sm leading-6 text-slate-600">
-          実装前の骨組みです。設計は{' '}
-          <a
-            href="https://github.com/hiraku00/parking-management/tree/main/docs/design"
-            className="underline"
-          >
-            docs/design
-          </a>{' '}
-          を参照してください。
+    <main className="flex min-h-screen items-center justify-center bg-slate-50 p-4">
+      <div className="w-full max-w-md space-y-6">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-slate-900">🅿️ {title}</h1>
+        </div>
+
+        {invalid && (
+          <div className="rounded-md bg-destructive/10 p-4 text-base leading-relaxed text-destructive">
+            QRコードが無効です。お手数ですが、駐車場の管理者にご連絡ください。
+          </div>
+        )}
+        {expired && !invalid && (
+          <div className="rounded-md bg-amber-50 p-4 text-base leading-relaxed text-amber-900">
+            ログインの有効期限が切れました。もう一度ログインしてください。
+          </div>
+        )}
+
+        <LoginForm />
+
+        <p className="text-center text-sm leading-relaxed text-muted-foreground">
+          QRコードをお持ちの方は、スマホのカメラで読み取るだけでログインできます
         </p>
+
+        <div className="text-right">
+          <Link href="/admin" className="text-sm text-muted-foreground hover:underline">
+            管理者の方 ›
+          </Link>
+        </div>
       </div>
     </main>
   )
