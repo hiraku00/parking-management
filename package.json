@@ -17,17 +17,27 @@
     "format": "prettier --check .",
     "format:write": "prettier --write .",
     "test": "vitest run",
-    "test:e2e": "playwright test"
+    "test:integration": "vitest run --config vitest.workers.config.ts",
+    "test:e2e": "playwright test",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate:local": "wrangler d1 migrations apply parking --local",
+    "db:migrate:remote": "wrangler d1 migrations apply parking --remote",
+    "db:seed:local": "wrangler d1 execute parking --local --file=db/seed.dev.sql",
+    "db:reset:local": "rm -rf .wrangler/state && npm run db:migrate:local && npm run db:seed:local"
   },
   "dependencies": {
+    "@vinext/cloudflare": "1.0.0-beta.7",
+    "drizzle-orm": "^0.45.2",
     "react": "19.3.0",
     "react-dom": "19.3.0",
     "react-server-dom-webpack": "19.3.0",
+    "uqr": "^0.1.3",
     "vinext": "1.0.0-beta.9",
-    "@vinext/cloudflare": "1.0.0-beta.7"
+    "zod": "^4.6.2"
   },
   "devDependencies": {
     "@cloudflare/vite-plugin": "1.54.8",
+    "@cloudflare/vitest-plugin": "1.1.8",
     "@eslint/js": "^9.39.0",
     "@playwright/test": "^1.63.0",
     "@tailwindcss/postcss": "4.3.3",
@@ -36,6 +46,7 @@
     "@types/react-dom": "19.2.3",
     "@vitejs/plugin-react": "6.1.1",
     "@vitejs/plugin-rsc": "0.5.34",
+    "drizzle-kit": "0.31.10",
     "eslint": "^9.39.0",
     "eslint-plugin-react": "^7.37.5",
     "eslint-plugin-react-hooks": "^7.0.0",
@@ -44,7 +55,7 @@
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.46.0",
     "vite": "8.3.0",
-    "vitest": "^5.0.0",
+    "vitest": "4.1.11",
     "wrangler": "4.131.1"
   }
 }
