@@ -2,6 +2,12 @@
 
 import { useActionState, useState } from 'react'
 import { useFormStatus } from 'react-dom'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
+import { Checkbox } from '@/components/ui/checkbox'
+import { toast } from 'sonner'
 import type { ContractorFormState } from './actions'
 
 export type ContractorFormValues = {
@@ -26,19 +32,12 @@ const EMPTY_VALUES: ContractorFormValues = {
   note: '',
 }
 
-const inputClass =
-  'w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:outline-2 focus:outline-indigo-500 focus:-outline-offset-1'
-
 function SubmitButton({ label, pendingLabel }: { label: string; pendingLabel: string }) {
   const { pending } = useFormStatus()
   return (
-    <button
-      type="submit"
-      disabled={pending}
-      className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
-    >
+    <Button type="submit" disabled={pending}>
       {pending ? pendingLabel : label}
-    </button>
+    </Button>
   )
 }
 
@@ -54,88 +53,63 @@ export function ContractorForm({
   showFeeChangeOption?: boolean
 }) {
   const values = initialValues ?? EMPTY_VALUES
-  const [state, formAction] = useActionState(action, {})
+  const [state, formAction] = useActionState(async (prevState: ContractorFormState, formData: FormData) => {
+    const result = await action(prevState, formData)
+    // 新規登録は成功すると詳細画面へredirectするため、ここに戻ってくるのは
+    // 更新（同じ画面に留まる）の成功時か、どちらの失敗時か。
+    // 保存が終わったらトーストで知らせる（docs/design/07-screens.md §7.1）
+    if (!result.error) toast.success('保存しました。')
+    return result
+  }, {})
   const [monthlyFee, setMonthlyFee] = useState(values.monthlyFee)
 
   const feeChanged = showFeeChangeOption && monthlyFee !== values.monthlyFee
 
   return (
     <form action={formAction} className="space-y-5">
-      {state.error && <div className="rounded-md bg-red-50 p-3 text-sm text-red-700">{state.error}</div>}
+      {state.error && (
+        <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">{state.error}</div>
+      )}
 
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label="氏名" required>
-          <input
-            name="name"
-            defaultValue={values.name}
-            required
-            className={inputClass}
-            placeholder="例: 田中太郎"
-          />
+          <Input name="name" defaultValue={values.name} required placeholder="例: 田中太郎" />
         </Field>
         <Field label="フリガナ">
-          <input
-            name="nameKana"
-            defaultValue={values.nameKana}
-            className={inputClass}
-            placeholder="例: タナカ タロウ"
-          />
+          <Input name="nameKana" defaultValue={values.nameKana} placeholder="例: タナカ タロウ" />
         </Field>
         <Field label="電話番号" required>
-          <input
-            name="phone"
-            defaultValue={values.phone}
-            required
-            className={inputClass}
-            placeholder="例: 090-1234-5678"
-          />
+          <Input name="phone" defaultValue={values.phone} required placeholder="例: 090-1234-5678" />
         </Field>
         <Field label="区画">
-          <input
-            name="spaceLabel"
-            defaultValue={values.spaceLabel}
-            className={inputClass}
-            placeholder="例: A-3"
-          />
+          <Input name="spaceLabel" defaultValue={values.spaceLabel} placeholder="例: A-3" />
         </Field>
         <Field label="月額料金（円）" required>
-          <input
+          <Input
             name="monthlyFee"
             type="number"
             min={1}
             defaultValue={values.monthlyFee}
             onChange={(e) => setMonthlyFee(Number(e.target.value))}
             required
-            className={inputClass}
           />
         </Field>
         <div />
         <Field label="契約開始月" required>
-          <input
-            name="contractStartMonth"
-            type="month"
-            defaultValue={values.contractStartMonth}
-            required
-            className={inputClass}
-          />
+          <Input name="contractStartMonth" type="month" defaultValue={values.contractStartMonth} required />
         </Field>
         <Field label="契約終了月（無期限は空欄）">
-          <input
-            name="contractEndMonth"
-            type="month"
-            defaultValue={values.contractEndMonth}
-            className={inputClass}
-          />
+          <Input name="contractEndMonth" type="month" defaultValue={values.contractEndMonth} />
         </Field>
       </div>
 
       <Field label="メモ">
-        <textarea name="note" defaultValue={values.note} rows={3} className={inputClass} />
+        <Textarea name="note" defaultValue={values.note} rows={3} />
       </Field>
 
       {feeChanged && (
         <label className="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
-          <input type="checkbox" name="applyFeeToOpenInvoices" className="mt-0.5" />
+          <Checkbox name="applyFeeToOpenInvoices" className="mt-0.5" />
           未入金の請求にも新しい月額料金を反映する（入金済み・確認中の月は変更されません）
         </label>
       )}
@@ -155,12 +129,12 @@ function Field({
   children: React.ReactNode
 }) {
   return (
-    <label className="block space-y-1">
-      <span className="text-sm font-medium text-slate-700">
+    <div className="space-y-1.5">
+      <Label>
         {label}
-        {required && <span className="text-red-500"> *</span>}
-      </span>
+        {required && <span className="text-destructive"> *</span>}
+      </Label>
       {children}
-    </label>
+    </div>
   )
 }

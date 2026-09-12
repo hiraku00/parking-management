@@ -1,6 +1,8 @@
 import { headers } from 'next/headers'
 import Link from 'next/link'
 import { verifyOwnerRequest } from '@/lib/auth/owner'
+import { Button } from '@/components/ui/button'
+import { Toaster } from '@/components/ui/sonner'
 
 // proxy.ts が /admin* を守っているが、ここでもオーナーのメールを表示用に
 // 取得する（未ログインならこの時点で proxy が既に403にしているはずなので、
@@ -27,17 +29,15 @@ export default async function AdminLayout({ children }: { children: React.ReactN
             </Link>
           </nav>
           <div className="flex items-center gap-4">
-            {owner && <span className="text-sm text-slate-500">{owner.email}</span>}
-            <a
-              href="/cdn-cgi/access/logout"
-              className="rounded-md border border-slate-300 px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-100"
-            >
-              ログアウト
-            </a>
+            {owner && <span className="text-sm text-muted-foreground">{owner.email}</span>}
+            <Button asChild variant="outline" size="sm">
+              <a href="/cdn-cgi/access/logout">ログアウト</a>
+            </Button>
           </div>
         </div>
       </header>
       <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6">{children}</main>
+      <Toaster position="top-center" />
     </div>
   )
 }
