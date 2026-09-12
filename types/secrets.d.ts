@@ -19,6 +19,10 @@
 interface Env {
   /** 契約者セッションJWTの署名鍵（HS256、32バイト以上）。openssl rand -base64 32 で生成する。 */
   SESSION_SECRET: string
+  /** Stripeのシークレットキー（テストモードは sk_test_ で始まる）。 */
+  STRIPE_SECRET_KEY: string
+  /** StripeのWebhook署名検証用シークレット（whsec_ で始まる）。 */
+  STRIPE_WEBHOOK_SECRET: string
 }
 
 // `cloudflare:workers` の `env`（lib/env.ts が使う）は `Cloudflare.Env` の方を
@@ -26,5 +30,7 @@ interface Env {
 declare namespace Cloudflare {
   interface Env {
     SESSION_SECRET: string
+    STRIPE_SECRET_KEY: string
+    STRIPE_WEBHOOK_SECRET: string
   }
 }

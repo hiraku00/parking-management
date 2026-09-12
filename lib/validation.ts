@@ -116,3 +116,43 @@ export const settingsInputSchema = z.object({
 })
 
 export type SettingsInput = z.infer<typeof settingsInputSchema>
+
+// ─── Phase 4: 入金と領収書 ────────────────────────────────
+
+export const payMonthCountSchema = z.object({
+  count: z.coerce.number().int().min(1, '支払う月数を選んでください').max(24),
+})
+
+const isoDate = z
+  .string()
+  .trim()
+  .regex(/^\d{4}-\d{2}-\d{2}$/, 'YYYY-MM-DD形式で入力してください')
+
+export const reportTransferSchema = z.object({
+  count: z.coerce.number().int().min(1, '支払う月数を選んでください').max(24),
+  payerName: z.string().trim().min(1, '振込名義を入力してください').max(100),
+  paidOn: isoDate,
+})
+
+export const rejectTransferSchema = z.object({
+  paymentId: z.string().min(1),
+  reason: z.string().trim().min(1, '却下の理由を入力してください').max(500),
+})
+
+export const approveTransferSchema = z.object({
+  paymentId: z.string().min(1),
+})
+
+export const recordManualPaymentSchema = z.object({
+  contractorId: z.string().min(1),
+  invoiceIds: z.array(z.string().min(1)).min(1, '対象の請求を選んでください'),
+  amount: z.coerce.number().int().positive('入金額は1円以上で入力してください'),
+  method: z.enum(['cash', 'bank_transfer', 'other']),
+  paidOn: isoDate,
+  note: z
+    .string()
+    .trim()
+    .max(500)
+    .optional()
+    .transform((v) => (v ? v : undefined)),
+})

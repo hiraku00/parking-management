@@ -1,6 +1,13 @@
 import { and, desc, eq, gte, inArray, isNull, lte } from 'drizzle-orm'
 import type { Db } from '../db/client'
-import { contractors, invoices, payments, paymentAllocations, receipts } from '../db/schema'
+import {
+  contractors,
+  invoices,
+  payments,
+  paymentAllocations,
+  receipts,
+  type IssuerSnapshot,
+} from '../db/schema'
 import { addMonths, compareYearMonth, currentMonth, monthsBetween, type YearMonth } from '../domain/time'
 
 /** 画面表示用の読み取り専用クエリ（書き込みは lib/services/* の各サービスで行う）。
@@ -305,4 +312,40 @@ export async function getPaymentHistoryForContractor(
     months: (monthsByPayment.get(p.id) ?? []).sort(),
     hasReceipt: paymentsWithReceipt.has(p.id),
   }))
+}
+
+export type ReceiptView = {
+  contractorId: string
+  receiptNo: number
+  issuedAt: Date
+  transactionDate: string
+  recipientName: string
+  description: string
+  amount: number
+  taxRate: number
+  taxAmount: number
+  paymentMethodLabel: string
+  issuer: IssuerSnapshot
+}
+
+/** 契約者ポータル・管理画面の両方の領収書表示から使う（所有者チェックは呼び出し側で行う）。 */
+export async function getReceiptForPayment(db: Db, paymentId: string): Promise<ReceiptView | null> {
+  const receipt = await db.query.receipts.findFirst({ where: eq(receipts.paymentId, paymentId) })
+  if (!receipt) return null
+  const payment = await db.query.payments.findFirst({ where: eq(payments.id, paymentId) })
+  if (!payment) return null
+
+  return {
+    contractorId: payment.contractorId,
+    receiptNo: receipt.receiptNo,
+    issuedAt: receipt.issuedAt,
+    transactionDate: receipt.transactionDate,
+    recipientName: receipt.recipientName,
+    description: receipt.description,
+    amount: receipt.amount,
+    taxRate: receipt.taxRate,
+    taxAmount: receipt.taxAmount,
+    paymentMethodLabel: receipt.paymentMethodLabel,
+    issuer: receipt.issuer,
+  }
 }

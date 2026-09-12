@@ -76,7 +76,7 @@ export default async function AdminDashboardPage() {
             <ul className="space-y-1 text-sm text-amber-900">
               {pendingTransfers.map((t) => (
                 <li key={t.paymentId}>
-                  <Link href={`/admin/contractors/${t.contractorId}`} className="underline">
+                  <Link href={`/admin/payments/${t.paymentId}`} className="underline">
                     {t.contractorName}
                   </Link>
                   {' — '}

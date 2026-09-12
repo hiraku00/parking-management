@@ -24,6 +24,9 @@ export default async function AdminLayout({ children }: { children: React.ReactN
             >
               契約者一覧
             </Link>
+            <Link href="/admin/payments" className="text-sm font-medium text-slate-600 hover:text-slate-900">
+              入金
+            </Link>
             <Link href="/admin/settings" className="text-sm font-medium text-slate-600 hover:text-slate-900">
               設定
             </Link>
