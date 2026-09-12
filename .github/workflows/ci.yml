@@ -27,7 +27,11 @@ jobs:
           cache: npm
 
       - name: Install dependencies
-        run: npm ci
+        # @cloudflare/vitest-plugin は vitest ^4.1.0 に依存する一方、他の
+        # devDependencies は vitest 5系のエコシステム前提のものを含むため、
+        # npm 10のarboristがピア依存の解決中にクラッシュする（既知のnpmの不具合）。
+        # --legacy-peer-deps でピア依存の厳密な検証をスキップして回避する。
+        run: npm ci --legacy-peer-deps
 
       - name: Lint
         run: npm run lint
@@ -40,6 +44,9 @@ jobs:
 
       - name: Unit tests
         run: npm test
+
+      - name: Integration tests (D1)
+        run: npm run test:integration
 
       - name: Build
         run: npm run build
