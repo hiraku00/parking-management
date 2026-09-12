@@ -1,0 +1,20 @@
+# ローカル開発用の環境変数テンプレート。
+# `cp .dev.vars.example .dev.vars` してから値を埋める。.dev.vars はコミットしない。
+#
+# Phase 3（認証）以降で実際に使う値が増える。現時点ではプレースホルダーのみ。
+
+APP_ENV=development
+
+# Phase 3: Cloudflare Access（本番相当の検証をローカルでやりたい場合のみ）
+ACCESS_TEAM_DOMAIN=
+ACCESS_AUD=
+OWNER_EMAILS=hiraku00@gmail.com
+# 開発時はAccessをバイパスし、このメールをオーナーとして扱う
+DEV_OWNER_EMAIL=dev-owner@localhost
+
+# Phase 3: 契約者セッションの署名鍵（openssl rand -base64 32 で生成）
+SESSION_SECRET=
+
+# Phase 4: Stripe（テストモードのキーを使う）
+STRIPE_SECRET_KEY=
+STRIPE_WEBHOOK_SECRET=

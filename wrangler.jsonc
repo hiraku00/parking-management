@@ -1,0 +1,41 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "parking-management",
+  "compatibility_date": "2026-09-12",
+  "compatibility_flags": ["nodejs_compat"],
+  "main": "vinext/server/fetch-handler",
+  // Version Preview URLs are served from a different hostname than the
+  // deployed Worker, so Access（/admin*）はそこには効かない。無効にしておく。
+  "preview_urls": false,
+  "observability": { "enabled": true },
+  "assets": {
+    "directory": "dist/client",
+    "not_found_handling": "none",
+    "binding": "ASSETS",
+  },
+  "cache": { "enabled": true },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "parking",
+      // Phase 6（本番構築）で `wrangler d1 create parking` を実行し、
+      // 返ってきた database_id に置き換える。それまではローカル開発のみ。
+      "database_id": "<pending-phase-6-wrangler-d1-create>",
+      "migrations_dir": "migrations",
+    },
+  ],
+  "ratelimits": [
+    {
+      "name": "LOGIN_LIMITER",
+      "namespace_id": "3001",
+      "simple": { "limit": 10, "period": 60 },
+    },
+  ],
+  "vars": {
+    "APP_ENV": "production",
+    // Phase 3（Access設定）で実際の値に置き換える。
+    "ACCESS_TEAM_DOMAIN": "",
+    "ACCESS_AUD": "",
+    "OWNER_EMAILS": "hiraku00@gmail.com",
+  },
+}

@@ -27,196 +27,252 @@ erDiagram
 ## 4.3 スキーマ（`lib/db/schema.ts`）
 
 ```ts
-import { sql } from "drizzle-orm"
-import {
-  sqliteTable, text, integer, primaryKey, index, uniqueIndex, check,
-} from "drizzle-orm/sqlite-core"
+import { sql } from 'drizzle-orm'
+import { sqliteTable, text, integer, primaryKey, index, uniqueIndex, check } from 'drizzle-orm/sqlite-core'
 
-const id = () => text("id").primaryKey().$defaultFn(() => crypto.randomUUID())
-const ts = (name: string) => integer(name, { mode: "timestamp_ms" })
-const createdAt = () => ts("created_at").notNull().$defaultFn(() => new Date())
-const updatedAt = () => ts("updated_at").notNull().$defaultFn(() => new Date()).$onUpdateFn(() => new Date())
+const id = () =>
+  text('id')
+    .primaryKey()
+    .$defaultFn(() => crypto.randomUUID())
+const ts = (name: string) => integer(name, { mode: 'timestamp_ms' })
+const createdAt = () =>
+  ts('created_at')
+    .notNull()
+    .$defaultFn(() => new Date())
+const updatedAt = () =>
+  ts('updated_at')
+    .notNull()
+    .$defaultFn(() => new Date())
+    .$onUpdateFn(() => new Date())
 const YM = (col: string) => sql.raw(`${col} GLOB '[0-9][0-9][0-9][0-9]-[01][0-9]'`)
 
 // ─── 契約者 ───────────────────────────────────────────────
-export const contractors = sqliteTable("contractors", {
-  id: id(),
-  name: text("name").notNull(),                       // 表示名（例: 田中 太郎）
-  nameKana: text("name_kana"),                        // 並び替えと振込名義の照合用（任意）
-  loginKey: text("login_key").notNull(),              // normalizeName(name)（NFKC、空白除去）
-  phone: text("phone").notNull(),
-  phoneLast4: text("phone_last4").notNull(),
-  spaceLabel: text("space_label"),                    // 区画（例: "A-3"）
-  monthlyFee: integer("monthly_fee").notNull(),       // 次に請求を作るときの月額
-  contractStartMonth: text("contract_start_month").notNull(),
-  contractEndMonth: text("contract_end_month"),       // null = 無期限
-  note: text("note"),
-  sessionVersion: integer("session_version").notNull().default(1),
-  loginTokenHash: text("login_token_hash"),           // SHA-256(base64url)。QRログイン用
-  loginTokenIssuedAt: ts("login_token_issued_at"),
-  failedLoginCount: integer("failed_login_count").notNull().default(0),
-  lockedUntil: ts("locked_until"),
-  archivedAt: ts("archived_at"),
-  createdAt: createdAt(),
-  updatedAt: updatedAt(),
-}, (t) => [
-  // アーカイブ済みの人とは同名でも登録できるよう、部分UNIQUEにする
-  uniqueIndex("contractors_login_key_uq").on(t.loginKey).where(sql`archived_at IS NULL`),
-  uniqueIndex("contractors_login_token_uq").on(t.loginTokenHash),
-  check("contractors_fee_chk", sql`monthly_fee > 0`),
-  check("contractors_start_chk", YM("contract_start_month")),
-  check("contractors_end_chk", sql`contract_end_month IS NULL OR (${YM("contract_end_month")} AND contract_end_month >= contract_start_month)`),
-  check("contractors_last4_chk", sql`phone_last4 GLOB '[0-9][0-9][0-9][0-9]'`),
-])
+export const contractors = sqliteTable(
+  'contractors',
+  {
+    id: id(),
+    name: text('name').notNull(), // 表示名（例: 田中 太郎）
+    nameKana: text('name_kana'), // 並び替えと振込名義の照合用（任意）
+    loginKey: text('login_key').notNull(), // normalizeName(name)（NFKC、空白除去）
+    phone: text('phone').notNull(),
+    phoneLast4: text('phone_last4').notNull(),
+    spaceLabel: text('space_label'), // 区画（例: "A-3"）
+    monthlyFee: integer('monthly_fee').notNull(), // 次に請求を作るときの月額
+    contractStartMonth: text('contract_start_month').notNull(),
+    contractEndMonth: text('contract_end_month'), // null = 無期限
+    note: text('note'),
+    sessionVersion: integer('session_version').notNull().default(1),
+    loginTokenHash: text('login_token_hash'), // SHA-256(base64url)。QRログイン用
+    loginTokenIssuedAt: ts('login_token_issued_at'),
+    failedLoginCount: integer('failed_login_count').notNull().default(0),
+    lockedUntil: ts('locked_until'),
+    archivedAt: ts('archived_at'),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [
+    // アーカイブ済みの人とは同名でも登録できるよう、部分UNIQUEにする
+    uniqueIndex('contractors_login_key_uq')
+      .on(t.loginKey)
+      .where(sql`archived_at IS NULL`),
+    uniqueIndex('contractors_login_token_uq').on(t.loginTokenHash),
+    check('contractors_fee_chk', sql`monthly_fee > 0`),
+    check('contractors_start_chk', YM('contract_start_month')),
+    check(
+      'contractors_end_chk',
+      sql`contract_end_month IS NULL OR (${YM('contract_end_month')} AND contract_end_month >= contract_start_month)`,
+    ),
+    check('contractors_last4_chk', sql`phone_last4 GLOB '[0-9][0-9][0-9][0-9]'`),
+  ],
+)
 
 // ─── 月次請求 ─────────────────────────────────────────────
-export const invoices = sqliteTable("invoices", {
-  id: id(),
-  contractorId: text("contractor_id").notNull().references(() => contractors.id),
-  month: text("month").notNull(),                     // YYYY-MM（対象月）
-  amount: integer("amount").notNull(),                // 請求を作った時点で固定する
-  status: text("status", { enum: ["open", "paid", "void"] }).notNull().default("open"),
-  paidAt: ts("paid_at"),
-  voidedAt: ts("voided_at"),
-  voidReason: text("void_reason"),
-  createdAt: createdAt(),
-  updatedAt: updatedAt(),
-}, (t) => [
-  uniqueIndex("invoices_contractor_month_uq").on(t.contractorId, t.month),
-  index("invoices_status_month_idx").on(t.status, t.month),
-  check("invoices_amount_chk", sql`amount > 0`),
-  check("invoices_month_chk", YM("month")),
-  check("invoices_status_chk", sql`status IN ('open','paid','void')`),
-])
+export const invoices = sqliteTable(
+  'invoices',
+  {
+    id: id(),
+    contractorId: text('contractor_id')
+      .notNull()
+      .references(() => contractors.id),
+    month: text('month').notNull(), // YYYY-MM（対象月）
+    amount: integer('amount').notNull(), // 請求を作った時点で固定する
+    status: text('status', { enum: ['open', 'paid', 'void'] })
+      .notNull()
+      .default('open'),
+    paidAt: ts('paid_at'),
+    voidedAt: ts('voided_at'),
+    voidReason: text('void_reason'),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [
+    uniqueIndex('invoices_contractor_month_uq').on(t.contractorId, t.month),
+    index('invoices_status_month_idx').on(t.status, t.month),
+    check('invoices_amount_chk', sql`amount > 0`),
+    check('invoices_month_chk', YM('month')),
+    check('invoices_status_chk', sql`status IN ('open','paid','void')`),
+  ],
+)
 
 // ─── 入金 ─────────────────────────────────────────────────
-export const PAYMENT_METHODS = ["card", "bank_transfer", "cash", "other"] as const
-export const PAYMENT_STATUSES = ["pending", "succeeded", "failed", "canceled", "rejected"] as const
+export const PAYMENT_METHODS = ['card', 'bank_transfer', 'cash', 'other'] as const
+export const PAYMENT_STATUSES = ['pending', 'succeeded', 'failed', 'canceled', 'rejected'] as const
 
-export const payments = sqliteTable("payments", {
-  id: id(),
-  contractorId: text("contractor_id").notNull().references(() => contractors.id),
-  method: text("method", { enum: PAYMENT_METHODS }).notNull(),
-  channel: text("channel", { enum: ["portal", "admin"] }).notNull(),   // 誰が起点になったか
-  status: text("status", { enum: PAYMENT_STATUSES }).notNull(),
-  amount: integer("amount").notNull(),
-  // Stripe
-  stripeCheckoutSessionId: text("stripe_checkout_session_id"),
-  stripePaymentIntentId: text("stripe_payment_intent_id"),
-  stripePaymentMethodType: text("stripe_payment_method_type"),       // card / konbini / paypay …
-  // 振込・現金
-  payerName: text("payer_name"),                      // 振込名義
-  paidOn: text("paid_on"),                            // 振込日・受領日（YYYY-MM-DD、JST）
-  note: text("note"),
-  // 審査
-  reviewedBy: text("reviewed_by"),                    // オーナーのメール
-  reviewedAt: ts("reviewed_at"),
-  rejectReason: text("reject_reason"),
-  succeededAt: ts("succeeded_at"),
-  createdAt: createdAt(),
-  updatedAt: updatedAt(),
-}, (t) => [
-  uniqueIndex("payments_checkout_session_uq").on(t.stripeCheckoutSessionId),
-  index("payments_contractor_created_idx").on(t.contractorId, t.createdAt),
-  index("payments_status_idx").on(t.status),
-  check("payments_amount_chk", sql`amount > 0`),
-  check("payments_method_chk", sql`method IN ('card','bank_transfer','cash','other')`),
-  check("payments_status_chk", sql`status IN ('pending','succeeded','failed','canceled','rejected')`),
-])
+export const payments = sqliteTable(
+  'payments',
+  {
+    id: id(),
+    contractorId: text('contractor_id')
+      .notNull()
+      .references(() => contractors.id),
+    method: text('method', { enum: PAYMENT_METHODS }).notNull(),
+    channel: text('channel', { enum: ['portal', 'admin'] }).notNull(), // 誰が起点になったか
+    status: text('status', { enum: PAYMENT_STATUSES }).notNull(),
+    amount: integer('amount').notNull(),
+    // Stripe
+    stripeCheckoutSessionId: text('stripe_checkout_session_id'),
+    stripePaymentIntentId: text('stripe_payment_intent_id'),
+    stripePaymentMethodType: text('stripe_payment_method_type'), // card / konbini / paypay …
+    // 振込・現金
+    payerName: text('payer_name'), // 振込名義
+    paidOn: text('paid_on'), // 振込日・受領日（YYYY-MM-DD、JST）
+    note: text('note'),
+    // 審査
+    reviewedBy: text('reviewed_by'), // オーナーのメール
+    reviewedAt: ts('reviewed_at'),
+    rejectReason: text('reject_reason'),
+    succeededAt: ts('succeeded_at'),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [
+    uniqueIndex('payments_checkout_session_uq').on(t.stripeCheckoutSessionId),
+    index('payments_contractor_created_idx').on(t.contractorId, t.createdAt),
+    index('payments_status_idx').on(t.status),
+    check('payments_amount_chk', sql`amount > 0`),
+    check('payments_method_chk', sql`method IN ('card','bank_transfer','cash','other')`),
+    check('payments_status_chk', sql`status IN ('pending','succeeded','failed','canceled','rejected')`),
+  ],
+)
 
 // ─── 入金配分（どの請求にいくら充てたか）─────────────────
-export const payment_allocations = sqliteTable("payment_allocations", {
-  paymentId: text("payment_id").notNull().references(() => payments.id),
-  invoiceId: text("invoice_id").notNull().references(() => invoices.id),
-  amount: integer("amount").notNull(),
-  // 入金の状態を写したもの: pending=確保中 / applied=消込済み / released=解放済み
-  state: text("state", { enum: ["pending", "applied", "released"] }).notNull(),
-}, (t) => [
-  primaryKey({ columns: [t.paymentId, t.invoiceId] }),
-  index("allocations_invoice_idx").on(t.invoiceId, t.state),
-  // 1つの請求を確保できる「処理中の入金」は1件だけ（二重決済をDBで防ぐ）
-  uniqueIndex("allocations_one_pending_per_invoice_uq").on(t.invoiceId).where(sql`state = 'pending'`),
-  check("allocations_amount_chk", sql`amount > 0`),
-])
+export const payment_allocations = sqliteTable(
+  'payment_allocations',
+  {
+    paymentId: text('payment_id')
+      .notNull()
+      .references(() => payments.id),
+    invoiceId: text('invoice_id')
+      .notNull()
+      .references(() => invoices.id),
+    amount: integer('amount').notNull(),
+    // 入金の状態を写したもの: pending=確保中 / applied=消込済み / released=解放済み
+    state: text('state', { enum: ['pending', 'applied', 'released'] }).notNull(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.paymentId, t.invoiceId] }),
+    index('allocations_invoice_idx').on(t.invoiceId, t.state),
+    // 1つの請求を確保できる「処理中の入金」は1件だけ（二重決済をDBで防ぐ）
+    uniqueIndex('allocations_one_pending_per_invoice_uq')
+      .on(t.invoiceId)
+      .where(sql`state = 'pending'`),
+    check('allocations_amount_chk', sql`amount > 0`),
+  ],
+)
 
 // ─── 領収書（入金1件につき1枚、発行時の情報を保存）───────
-export const receipts = sqliteTable("receipts", {
-  id: id(),
-  receiptNo: integer("receipt_no").notNull(),         // 連番（1, 2, 3…）
-  paymentId: text("payment_id").notNull().references(() => payments.id),
-  issuedAt: ts("issued_at").notNull(),
-  transactionDate: text("transaction_date").notNull(),// 取引日（YYYY-MM-DD、JST）
-  recipientName: text("recipient_name").notNull(),
-  description: text("description").notNull(),        // 例: 駐車場使用料 2026年10月分〜12月分（区画A-3）
-  amount: integer("amount").notNull(),
-  taxRate: integer("tax_rate").notNull(),             // 10
-  taxAmount: integer("tax_amount").notNull(),         // 内税額 = floor(amount * rate / (100 + rate))
-  paymentMethodLabel: text("payment_method_label").notNull(),
-  issuer: text("issuer", { mode: "json" }).notNull().$type<IssuerSnapshot>(),
-  createdAt: createdAt(),
-}, (t) => [
-  uniqueIndex("receipts_no_uq").on(t.receiptNo),
-  uniqueIndex("receipts_payment_uq").on(t.paymentId),
-])
+export const receipts = sqliteTable(
+  'receipts',
+  {
+    id: id(),
+    receiptNo: integer('receipt_no').notNull(), // 連番（1, 2, 3…）
+    paymentId: text('payment_id')
+      .notNull()
+      .references(() => payments.id),
+    issuedAt: ts('issued_at').notNull(),
+    transactionDate: text('transaction_date').notNull(), // 取引日（YYYY-MM-DD、JST）
+    recipientName: text('recipient_name').notNull(),
+    description: text('description').notNull(), // 例: 駐車場使用料 2026年10月分〜12月分（区画A-3）
+    amount: integer('amount').notNull(),
+    taxRate: integer('tax_rate').notNull(), // 10
+    taxAmount: integer('tax_amount').notNull(), // 内税額 = floor(amount * rate / (100 + rate))
+    paymentMethodLabel: text('payment_method_label').notNull(),
+    issuer: text('issuer', { mode: 'json' }).notNull().$type<IssuerSnapshot>(),
+    createdAt: createdAt(),
+  },
+  (t) => [uniqueIndex('receipts_no_uq').on(t.receiptNo), uniqueIndex('receipts_payment_uq').on(t.paymentId)],
+)
 
 export type IssuerSnapshot = {
-  businessName: string; address: string; phone: string | null; registrationNumber: string | null
+  businessName: string
+  address: string
+  phone: string | null
+  registrationNumber: string | null
 }
 
 // ─── 設定（1行だけ）──────────────────────────────────────
-export const settings = sqliteTable("settings", {
-  id: integer("id").primaryKey(),                     // 常に 1
-  businessName: text("business_name").notNull().default(""),
-  businessAddress: text("business_address").notNull().default(""),
-  businessPhone: text("business_phone"),
-  invoiceRegistrationNumber: text("invoice_registration_number"),   // T + 13桁
-  taxRate: integer("tax_rate").notNull().default(10),
-  bankName: text("bank_name"),
-  bankBranch: text("bank_branch"),
-  bankAccountType: text("bank_account_type", { enum: ["普通", "当座"] }),
-  bankAccountNumber: text("bank_account_number"),
-  bankAccountHolderKana: text("bank_account_holder_kana"),
-  cardPaymentEnabled: integer("card_payment_enabled", { mode: "boolean" }).notNull().default(true),
-  bankTransferEnabled: integer("bank_transfer_enabled", { mode: "boolean" }).notNull().default(true),
-  invoiceLeadMonths: integer("invoice_lead_months").notNull().default(1),  // 何か月先の分まで請求を作るか（前払い。初期値1=翌月分まで）
-  updatedAt: updatedAt(),
-}, () => [check("settings_singleton_chk", sql`id = 1`)])
+export const settings = sqliteTable(
+  'settings',
+  {
+    id: integer('id').primaryKey(), // 常に 1
+    businessName: text('business_name').notNull().default(''),
+    businessAddress: text('business_address').notNull().default(''),
+    businessPhone: text('business_phone'),
+    invoiceRegistrationNumber: text('invoice_registration_number'), // T + 13桁
+    taxRate: integer('tax_rate').notNull().default(10),
+    bankName: text('bank_name'),
+    bankBranch: text('bank_branch'),
+    bankAccountType: text('bank_account_type', { enum: ['普通', '当座'] }),
+    bankAccountNumber: text('bank_account_number'),
+    bankAccountHolderKana: text('bank_account_holder_kana'),
+    cardPaymentEnabled: integer('card_payment_enabled', { mode: 'boolean' }).notNull().default(true),
+    bankTransferEnabled: integer('bank_transfer_enabled', { mode: 'boolean' }).notNull().default(true),
+    invoiceLeadMonths: integer('invoice_lead_months').notNull().default(1), // 何か月先の分まで請求を作るか（前払い。初期値1=翌月分まで）
+    updatedAt: updatedAt(),
+  },
+  () => [check('settings_singleton_chk', sql`id = 1`)],
+)
 
 // ─── 監査ログ ─────────────────────────────────────────────
-export const audit_logs = sqliteTable("audit_logs", {
-  id: id(),
-  actor: text("actor").notNull(),                     // owner:<email> | contractor:<id> | stripe | system
-  action: text("action").notNull(),                   // 例: payment.approve, contractor.update
-  entityType: text("entity_type").notNull(),
-  entityId: text("entity_id").notNull(),
-  detail: text("detail", { mode: "json" }).$type<Record<string, unknown>>(),
-  dedupeKey: text("dedupe_key"),                      // Webhook等の重複を防ぐ（例: stripe event id）
-  createdAt: createdAt(),
-}, (t) => [
-  index("audit_entity_idx").on(t.entityType, t.entityId),
-  index("audit_created_idx").on(t.createdAt),
-  uniqueIndex("audit_dedupe_uq").on(t.dedupeKey),
-])
+export const audit_logs = sqliteTable(
+  'audit_logs',
+  {
+    id: id(),
+    actor: text('actor').notNull(), // owner:<email> | contractor:<id> | stripe | system
+    action: text('action').notNull(), // 例: payment.approve, contractor.update
+    entityType: text('entity_type').notNull(),
+    entityId: text('entity_id').notNull(),
+    detail: text('detail', { mode: 'json' }).$type<Record<string, unknown>>(),
+    dedupeKey: text('dedupe_key'), // Webhook等の重複を防ぐ（例: stripe event id）
+    createdAt: createdAt(),
+  },
+  (t) => [
+    index('audit_entity_idx').on(t.entityType, t.entityId),
+    index('audit_created_idx').on(t.createdAt),
+    uniqueIndex('audit_dedupe_uq').on(t.dedupeKey),
+  ],
+)
 
 // ─── Stripeイベントの受信記録（重複排除と調査用）─────────
-export const stripe_events = sqliteTable("stripe_events", {
-  id: text("id").primaryKey(),                        // evt_...
-  type: text("type").notNull(),
-  paymentId: text("payment_id"),
+export const stripe_events = sqliteTable('stripe_events', {
+  id: text('id').primaryKey(), // evt_...
+  type: text('type').notNull(),
+  paymentId: text('payment_id'),
   receivedAt: createdAt(),
 })
 ```
 
 ## 4.4 導出する値と不変条件
 
-| 名前 | 定義 |
-| --- | --- |
-| 消込済み額（invoice） | `SUM(allocations.amount WHERE invoice_id = ? AND state = 'applied')` |
-| 残額（invoice） | `amount - 消込済み額`（`status='void'` のときは0） |
-| 支払える請求 | `status='open'` かつ、`state='pending'` の配分が無く、`month <= 当月 + invoice_lead_months` |
-| 滞納 | `status='open'` かつ `month < 当月(JST)` |
+| 名前                  | 定義                                                                                        |
+| --------------------- | ------------------------------------------------------------------------------------------- |
+| 消込済み額（invoice） | `SUM(allocations.amount WHERE invoice_id = ? AND state = 'applied')`                        |
+| 残額（invoice）       | `amount - 消込済み額`（`status='void'` のときは0）                                          |
+| 支払える請求          | `status='open'` かつ、`state='pending'` の配分が無く、`month <= 当月 + invoice_lead_months` |
+| 滞納                  | `status='open'` かつ `month < 当月(JST)`                                                    |
 
 **不変条件**（servicesで守り、統合テストで確認する）
+
 1. 入金の `amount` = その入金の配分額の合計
 2. 配分の `state` は入金の `status` と対応する（pending→pending、succeeded→applied、それ以外→released）
 3. 請求の `status='paid'` ⇔ 消込済み額 ≥ `amount`

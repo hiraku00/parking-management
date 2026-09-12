@@ -19,8 +19,9 @@
 /playwright-report/
 /test-results/
 
-# Cloudflare / wrangler
+# Cloudflare / wrangler / vinext
 /.wrangler/
+/.vinext/
 .dev.vars
 .dev.vars.*
 !.dev.vars.example
