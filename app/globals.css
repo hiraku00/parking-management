@@ -1,0 +1,27 @@
+@import 'tailwindcss';
+
+/*
+ * next/font/google はvinextでは部分対応（CDN読み込みのみ、サブセット化や
+ * フォールバックメトリクスなし）のため使わない。日本語UIとして自然に表示
+ * される、システムの日本語フォントスタックを直接指定する。
+ * 参照: docs/design/03-architecture.md §3.1, §3.4
+ */
+:root {
+  color-scheme: light;
+  --font-sans:
+    -apple-system, BlinkMacSystemFont, 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Noto Sans JP',
+    'Yu Gothic UI', Meiryo, system-ui, sans-serif;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  background: #f8fafc;
+  color: #0f172a;
+  /* 決済金額・電話番号など数字を含む画面が多いため、桁が揃うようにする */
+  font-variant-numeric: tabular-nums;
+}
+
+a {
+  color: inherit;
+}

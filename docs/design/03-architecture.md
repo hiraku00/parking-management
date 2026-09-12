@@ -4,21 +4,21 @@
 
 2026-09-12 時点の最新版を基準にし、実装開始時に `npm view` で確認してから固定します。
 
-| 領域 | 採用 | バージョン目安 | 備考 |
-| --- | --- | --- | --- |
-| ランタイム | Cloudflare Workers | compatibility_date 2026-09-01 / `nodejs_compat` | |
-| フレームワーク | vinext（Next.js App Router 互換、Vite ベース） | vinext 1.0.0-beta.x / next 16.3 / react 19.3 | デプロイは `@vinext/cloudflare`。独自のWorker入口は不要 |
-| DB | Cloudflare D1 | – | |
-| ORM | drizzle-orm / drizzle-kit | 0.45 / 0.31 | `drizzle-orm/d1`、`db.batch()` |
-| バリデーション | zod | 4.x | スキーマはフォームとサーバーで共有 |
-| 認証 | jose | 6.x | 契約者セッションの署名とAccess JWTの検証（`createRemoteJWKSet`） |
-| 決済 | stripe | 22.x | `createFetchHttpClient` / `constructEventAsync` |
-| UI | Tailwind CSS 4 / shadcn/ui（`radix-ui` 統合パッケージ）/ lucide-react | 4.3 / 最新 | 旧実装の `components/ui` は再生成する |
-| QRコード | `uqr`（依存ゼロでSVGを生成） | 最新 | サーバー側でSVGを生成し、ログインカードを印刷する |
-| テスト | vitest / `@cloudflare/vitest-pool-workers` / Playwright | 5.x / 0.22 / 1.63 | |
-| Lint/Format | ESLint 9（flat config）/ Prettier | | |
-| Node | 24 LTS | | `.node-version` |
-| CI/CD | GitHub Actions + wrangler | wrangler 4.13x | |
+| 領域           | 採用                                                                  | バージョン目安                                  | 備考                                                             |
+| -------------- | --------------------------------------------------------------------- | ----------------------------------------------- | ---------------------------------------------------------------- |
+| ランタイム     | Cloudflare Workers                                                    | compatibility_date 2026-09-01 / `nodejs_compat` |                                                                  |
+| フレームワーク | vinext（Next.js App Router 互換、Vite ベース）                        | vinext 1.0.0-beta.x / next 16.3 / react 19.3    | デプロイは `@vinext/cloudflare`。独自のWorker入口は不要          |
+| DB             | Cloudflare D1                                                         | –                                               |                                                                  |
+| ORM            | drizzle-orm / drizzle-kit                                             | 0.45 / 0.31                                     | `drizzle-orm/d1`、`db.batch()`                                   |
+| バリデーション | zod                                                                   | 4.x                                             | スキーマはフォームとサーバーで共有                               |
+| 認証           | jose                                                                  | 6.x                                             | 契約者セッションの署名とAccess JWTの検証（`createRemoteJWKSet`） |
+| 決済           | stripe                                                                | 22.x                                            | `createFetchHttpClient` / `constructEventAsync`                  |
+| UI             | Tailwind CSS 4 / shadcn/ui（`radix-ui` 統合パッケージ）/ lucide-react | 4.3 / 最新                                      | 旧実装の `components/ui` は再生成する                            |
+| QRコード       | `uqr`（依存ゼロでSVGを生成）                                          | 最新                                            | サーバー側でSVGを生成し、ログインカードを印刷する                |
+| テスト         | vitest / `@cloudflare/vitest-pool-workers` / Playwright               | 5.x / 0.22 / 1.63                               |                                                                  |
+| Lint/Format    | ESLint 9（flat config）/ Prettier                                     |                                                 |                                                                  |
+| Node           | 24 LTS                                                                |                                                 | `.node-version`                                                  |
+| CI/CD          | GitHub Actions + wrangler                                             | wrangler 4.13x                                  |                                                                  |
 
 > **vinextのリスクと退避策**: vinextは「本番利用はまだ推奨されない」段階です。そこでアプリのコードは、標準のNext.js API（`next/navigation`, `next/headers`, `next/cache`, Server Actions, Route Handlers, `proxy.ts`）と `cloudflare:workers` の `env` だけで書きます。vinextで問題が出た場合は、`@opennextjs/cloudflare` にビルドとデプロイの設定だけを差し替えて移れるようにしておきます。`next/font` は使いません（vinextでは部分対応のため）。
 
@@ -51,14 +51,14 @@ flowchart LR
 
 ## 3.3 Cloudflareリソース
 
-| 種類 | 名前 | 用途 |
-| --- | --- | --- |
-| Worker | `parking-management` | アプリ本体。URLは `https://parking-management.hiraku00.workers.dev`（独自ドメインは任意） |
-| D1 | `parking` | 全データ |
-| Access Application | `parking-admin` | 対象: `<host>/admin`（配下を含む）。ポリシー: オーナーのメールのみ許可。IdP: One-time PIN。セッション24時間 |
-| Rate Limiting | `LOGIN_LIMITER`（namespace 例 `3001`） | 予備ログイン: 1IPにつき60秒で10回 |
-| Secrets | `SESSION_SECRET`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` | `wrangler secret put` |
-| Vars | `APP_ENV`, `ACCESS_TEAM_DOMAIN`, `ACCESS_AUD`, `OWNER_EMAILS` | `wrangler.jsonc` に記載 |
+| 種類               | 名前                                                           | 用途                                                                                                        |
+| ------------------ | -------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| Worker             | `parking-management`                                           | アプリ本体。URLは `https://parking-management.hiraku00.workers.dev`（独自ドメインは任意）                   |
+| D1                 | `parking`                                                      | 全データ                                                                                                    |
+| Access Application | `parking-admin`                                                | 対象: `<host>/admin`（配下を含む）。ポリシー: オーナーのメールのみ許可。IdP: One-time PIN。セッション24時間 |
+| Rate Limiting      | `LOGIN_LIMITER`（namespace 例 `3001`）                         | 予備ログイン: 1IPにつき60秒で10回                                                                           |
+| Secrets            | `SESSION_SECRET`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` | `wrangler secret put`                                                                                       |
+| Vars               | `APP_ENV`, `ACCESS_TEAM_DOMAIN`, `ACCESS_AUD`, `OWNER_EMAILS`  | `wrangler.jsonc` に記載                                                                                     |
 
 ### `wrangler.jsonc`（案）
 
@@ -68,20 +68,20 @@ flowchart LR
   "name": "parking-management",
   "compatibility_date": "2026-09-01",
   "compatibility_flags": ["nodejs_compat"],
-  "preview_urls": false,            // preview URL は Access の対象外になるため無効にする
+  "preview_urls": false, // preview URL は Access の対象外になるため無効にする
   "observability": { "enabled": true },
   "d1_databases": [
-    { "binding": "DB", "database_name": "parking", "database_id": "<id>", "migrations_dir": "migrations" }
+    { "binding": "DB", "database_name": "parking", "database_id": "<id>", "migrations_dir": "migrations" },
   ],
   "ratelimits": [
-    { "name": "LOGIN_LIMITER", "namespace_id": "3001", "simple": { "limit": 10, "period": 60 } }
+    { "name": "LOGIN_LIMITER", "namespace_id": "3001", "simple": { "limit": 10, "period": 60 } },
   ],
   "vars": {
     "APP_ENV": "production",
     "ACCESS_TEAM_DOMAIN": "<team>.cloudflareaccess.com",
     "ACCESS_AUD": "<aud>",
-    "OWNER_EMAILS": "hiraku00@gmail.com"
-  }
+    "OWNER_EMAILS": "hiraku00@gmail.com",
+  },
 }
 ```
 
@@ -159,6 +159,7 @@ flowchart LR
 ```
 
 ### レイヤーのルール
+
 - `app/*`（ページとServer Action）は、**入力の検証 → 認可 → services呼び出し → 結果を返す**だけにする。SQLを直接書かない。
 - `lib/services/*` は業務ルールとトランザクション（`db.batch`）を担う。認可済みの主体（`actor`）を引数で受け取る。
 - `lib/domain/*` は純関数だけにする。時刻は引数で受け取る（テストできるように）。
@@ -191,9 +192,9 @@ sequenceDiagram
 
 ## 3.6 環境
 
-| 環境 | Worker | D1 | Stripe | Access |
-| --- | --- | --- | --- | --- |
-| local | `vinext dev`（miniflare） | ローカルD1（`.wrangler/`） | テストキー＋`stripe listen` | バイパス（`APP_ENV=development` かつ `DEV_OWNER_EMAIL`） |
-| production | `parking-management` | `parking` | **リリースまではテストキー**、リリース日に本番キーへ切り替え | 有効 |
+| 環境       | Worker                    | D1                         | Stripe                                                       | Access                                                   |
+| ---------- | ------------------------- | -------------------------- | ------------------------------------------------------------ | -------------------------------------------------------- |
+| local      | `vinext dev`（miniflare） | ローカルD1（`.wrangler/`） | テストキー＋`stripe listen`                                  | バイパス（`APP_ENV=development` かつ `DEV_OWNER_EMAIL`） |
+| production | `parking-management`      | `parking`                  | **リリースまではテストキー**、リリース日に本番キーへ切り替え | 有効                                                     |
 
 staging環境は作りません。本番のWorkerをテストモードのまま実際のURLで検証し、リリース時にDBを初期化してから本番キーに切り替えます（§08 リリース手順）。

@@ -4,15 +4,15 @@
 
 ## 8.1 フェーズ一覧
 
-| Phase | 内容 | 目安 | 完了条件（DoD） |
-| --- | --- | --- | --- |
-| 0 | リポジトリの初期化と骨組み | 0.5日 | `npm run dev` で空のページが表示される。CI（lint / typecheck / test / build）が緑 |
-| 1 | ドメインロジックとDB | 1日 | `lib/domain` の単体テスト、スキーマ、migration、`syncInvoices` と `allocate` の統合テストが緑 |
-| 2 | 管理画面（契約者・設定・請求） | 1.5日 | Access（開発時はバイパス）で、契約者のCRUD、請求の自動生成、免除、設定が動く |
-| 3 | 契約者の認証とポータル（閲覧） | 1日 | QRログインと予備ログイン、ホーム表示、ロックとレート制限 |
-| 4 | 入金（振込・現金・カード）と領収書 | 2日 | 3種類の入金フローが、端から端まで動く。Webhookの再送でも二重計上されない。領収書が発行される |
-| 5 | 仕上げ（監査ログ画面、ヘッダー、E2E、アクセシビリティ、法定ページ） | 1日 | E2Eが全て緑。Lighthouse のアクセシビリティ 95 以上 |
-| 6 | 本番構築とリリース | 0.5日 | 本番URLで、テストモードの全フローを確認 → 本番キーに切り替えて公開 |
+| Phase | 内容                                                                | 目安  | 完了条件（DoD）                                                                               |
+| ----- | ------------------------------------------------------------------- | ----- | --------------------------------------------------------------------------------------------- |
+| 0     | リポジトリの初期化と骨組み                                          | 0.5日 | `npm run dev` で空のページが表示される。CI（lint / typecheck / test / build）が緑             |
+| 1     | ドメインロジックとDB                                                | 1日   | `lib/domain` の単体テスト、スキーマ、migration、`syncInvoices` と `allocate` の統合テストが緑 |
+| 2     | 管理画面（契約者・設定・請求）                                      | 1.5日 | Access（開発時はバイパス）で、契約者のCRUD、請求の自動生成、免除、設定が動く                  |
+| 3     | 契約者の認証とポータル（閲覧）                                      | 1日   | QRログインと予備ログイン、ホーム表示、ロックとレート制限                                      |
+| 4     | 入金（振込・現金・カード）と領収書                                  | 2日   | 3種類の入金フローが、端から端まで動く。Webhookの再送でも二重計上されない。領収書が発行される  |
+| 5     | 仕上げ（監査ログ画面、ヘッダー、E2E、アクセシビリティ、法定ページ） | 1日   | E2Eが全て緑。Lighthouse のアクセシビリティ 95 以上                                            |
+| 6     | 本番構築とリリース                                                  | 0.5日 | 本番URLで、テストモードの全フローを確認 → 本番キーに切り替えて公開                            |
 
 合計で約7.5日（1日＝集中して作業した場合）。
 
@@ -114,6 +114,7 @@
 ## Phase 6 — 本番構築とリリース
 
 リリースの手順（Runbook）
+
 1. [ ] GitHubリポジトリを作成してpush（非公開を推奨）。Environment `production` に `CLOUDFLARE_API_TOKEN` と `CLOUDFLARE_ACCOUNT_ID` を登録する
 2. [ ] `wrangler d1 create parking` → `database_id` を `wrangler.jsonc` に書く
 3. [ ] Access Application `parking-admin` を作成（§5.2）→ `ACCESS_AUD` と `ACCESS_TEAM_DOMAIN` を `vars` に書く
@@ -128,24 +129,25 @@
 
 ## 8.2 テスト方針
 
-| 層 | 道具 | 対象 | 目安 |
-| --- | --- | --- | --- |
-| 単体 | vitest | `lib/domain/*`、`verifyOwner`、`normalizeName` | 分岐をすべて通す |
-| 統合 | vitest + `@cloudflare/vitest-pool-workers`（本物のD1） | `lib/services/*`、Webhook の Route Handler | §8.1 Phase 4 の項目は必須 |
-| E2E | Playwright + vinext dev | 主要な利用者フロー | §8.1 Phase 5 の6本 |
-| 本番スモーク | `curl` | `/api/health` 200、`/` 200、`/admin` がAccessへリダイレクト（302）、`GET /api/webhooks/stripe` 405 | デプロイのたびに実行 |
+| 層           | 道具                                                   | 対象                                                                                               | 目安                      |
+| ------------ | ------------------------------------------------------ | -------------------------------------------------------------------------------------------------- | ------------------------- |
+| 単体         | vitest                                                 | `lib/domain/*`、`verifyOwner`、`normalizeName`                                                     | 分岐をすべて通す          |
+| 統合         | vitest + `@cloudflare/vitest-pool-workers`（本物のD1） | `lib/services/*`、Webhook の Route Handler                                                         | §8.1 Phase 4 の項目は必須 |
+| E2E          | Playwright + vinext dev                                | 主要な利用者フロー                                                                                 | §8.1 Phase 5 の6本        |
+| 本番スモーク | `curl`                                                 | `/api/health` 200、`/` 200、`/admin` がAccessへリダイレクト（302）、`GET /api/webhooks/stripe` 405 | デプロイのたびに実行      |
 
 ## 8.3 CI/CD
 
 `ci.yml`（PRごと）: checkout → Node 24 → `npm ci` → lint → typecheck → `vitest run` → build → Playwright（chromium）
 
 `deploy.yml`（mainへのpush）:
+
 ```yaml
 concurrency: { group: production-deploy, cancel-in-progress: false }
 environment: production
 steps:
   - npm ci && npm run lint && npm run typecheck && npm test && npm run build
-  - run: npx wrangler d1 migrations apply parking --remote     # 後方互換の変更だけを許す
+  - run: npx wrangler d1 migrations apply parking --remote # 後方互換の変更だけを許す
   - run: npm run deploy
   - run: ./scripts/smoke.sh https://parking-management.hiraku00.workers.dev
 ```
@@ -156,14 +158,14 @@ steps:
 
 2026-09-12 にオーナーと確認済み。Q1・Q4 は当初の推奨から変更、Q2・Q3 は推奨どおり採用。
 
-| # | 項目 | 決定 | 影響 |
-| --- | --- | --- | --- |
-| Q1 | 前払いにするか（何か月先の分まで請求を作るか） | **有効化**。`invoice_lead_months` の初期値は **1**（翌月分まで請求を作る） | `settings.invoice_lead_months` は設定画面で後から変更できる（§4.3, §6.2, §7.4） |
-| Q2 | コンビニ払いなどを有効にするか | 推奨どおり、**最初はカードだけ**。必要になれば Stripe 側の設定変更のみで有効化する | コードの変更は不要（§6.4） |
-| Q3 | 独自ドメインを使うか | 推奨どおり、**`workers.dev` で開始** | 独自ドメインを用意した時点で、オーナー宛のメール通知（v1.1, §1.4）を追加する |
-| Q4 | GitHub のリポジトリ名と公開範囲 | `parking-management`、**公開（public）** | 公開リポジトリのため、Secrets・`.dev.vars`・個人情報を含むファイルをコミットしない運用を徹底する（§5.6, §8.5） |
-| Q5 | 予備ログイン（氏名＋下4桁）を残すか | 未決定。推奨: 残す（QRを失くしたときのため） | 設定で無効にできるようにしてもよい |
-| Q6 | Workers の有料プラン（$5/月） | 未決定。推奨: 不要（無料枠で足りる）。Time Travel を30日にしたい場合だけ検討 | – |
+| #   | 項目                                           | 決定                                                                               | 影響                                                                                                           |
+| --- | ---------------------------------------------- | ---------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| Q1  | 前払いにするか（何か月先の分まで請求を作るか） | **有効化**。`invoice_lead_months` の初期値は **1**（翌月分まで請求を作る）         | `settings.invoice_lead_months` は設定画面で後から変更できる（§4.3, §6.2, §7.4）                                |
+| Q2  | コンビニ払いなどを有効にするか                 | 推奨どおり、**最初はカードだけ**。必要になれば Stripe 側の設定変更のみで有効化する | コードの変更は不要（§6.4）                                                                                     |
+| Q3  | 独自ドメインを使うか                           | 推奨どおり、**`workers.dev` で開始**                                               | 独自ドメインを用意した時点で、オーナー宛のメール通知（v1.1, §1.4）を追加する                                   |
+| Q4  | GitHub のリポジトリ名と公開範囲                | `parking-management`、**公開（public）**                                           | 公開リポジトリのため、Secrets・`.dev.vars`・個人情報を含むファイルをコミットしない運用を徹底する（§5.6, §8.5） |
+| Q5  | 予備ログイン（氏名＋下4桁）を残すか            | 未決定。推奨: 残す（QRを失くしたときのため）                                       | 設定で無効にできるようにしてもよい                                                                             |
+| Q6  | Workers の有料プラン（$5/月）                  | 未決定。推奨: 不要（無料枠で足りる）。Time Travel を30日にしたい場合だけ検討       | –                                                                                                              |
 
 **リポジトリの初期化方針**（今回合意・実施済み）: 旧実装（`parking-management-anti` 由来の Vercel + Supabase 版）は、ビルド成果物や検証用の残骸（`playwright-report/`, `test-results/`, `todo_list.txt` など）を除いてそのまま最初のコミットとして残し、直後のコミットで削除して `docs/design/` に置き換えた。旧実装のソース自体は `main` の1コミット目から `git show <sha>:<path>` などで参照できる。
 
