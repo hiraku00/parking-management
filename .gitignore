@@ -10,17 +10,21 @@
 !.yarn/releases
 !.yarn/versions
 
-# testing
+# build output
+/dist
+/build
+/.next/
+/out/
 /coverage
 /playwright-report/
 /test-results/
 
-# next.js
-/.next/
-/out/
-
-# production
-/build
+# Cloudflare / wrangler
+/.wrangler/
+.dev.vars
+.dev.vars.*
+!.dev.vars.example
+worker-configuration.d.ts
 
 # misc
 .DS_Store
@@ -32,20 +36,20 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# env files (secrets are never committed, public repo)
+# env files (secrets are never committed — this is a public repository)
 .env
 .env.*
 !.env.example
 !.env*.example
 
-# vercel
+# vercel (legacy, kept in case of temporary rollback tooling)
 .vercel
 
 # typescript
 *.tsbuildinfo
 next-env.d.ts
 
-# supabase
-supabase/.temp/
-supabase/.branches/
-supabase/migrations/
+# editors
+.vscode/*
+!.vscode/extensions.json
+.idea
