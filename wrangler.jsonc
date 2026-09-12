@@ -17,9 +17,7 @@
     {
       "binding": "DB",
       "database_name": "parking",
-      // Phase 6（本番構築）で `wrangler d1 create parking` を実行し、
-      // 返ってきた database_id に置き換える。それまではローカル開発のみ。
-      "database_id": "<pending-phase-6-wrangler-d1-create>",
+      "database_id": "735518af-6aa6-45ea-aacc-843aa8dab5e5",
       "migrations_dir": "migrations",
     },
   ],
@@ -32,9 +30,8 @@
   ],
   "vars": {
     "APP_ENV": "production",
-    // Phase 3（Access設定）で実際の値に置き換える。
-    "ACCESS_TEAM_DOMAIN": "",
-    "ACCESS_AUD": "",
+    "ACCESS_TEAM_DOMAIN": "frosty-rice-fb39.cloudflareaccess.com",
+    "ACCESS_AUD": "f4eca92090a94673a132a6398514fe4a886310f9dbcf6fe1af50c3dc400bb8ae",
     "OWNER_EMAILS": "hiraku00@gmail.com",
     // 本番では常に空。ローカルの .dev.vars でだけ値を入れ、Access をバイパスする
     // （lib/auth/owner.ts）。ここに書くのは、CIなど .dev.vars が無い環境でも
