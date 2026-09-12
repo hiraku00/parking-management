@@ -1,0 +1,188 @@
+import { and, eq, gte, inArray, isNull, lte } from 'drizzle-orm'
+import type { Db } from '../db/client'
+import { contractors, invoices, payments, paymentAllocations } from '../db/schema'
+import { addMonths, compareYearMonth, currentMonth, monthsBetween, type YearMonth } from '../domain/time'
+
+/** 画面表示用の読み取り専用クエリ（書き込みは lib/services/* の各サービスで行う）。
+ *  参照: docs/design/07-screens.md §7.4 */
+
+export type DashboardKpi = {
+  month: YearMonth
+  billedAmount: number
+  collectedAmount: number
+  outstandingAmount: number
+  overdueContractorCount: number
+}
+
+/** 今月（JST）の請求額・入金済み額・未収額と、滞納している契約者数を返す。 */
+export async function getDashboardKpi(db: Db, now: Date): Promise<DashboardKpi> {
+  const month = currentMonth(now)
+
+  const currentMonthInvoices = await db
+    .select({ id: invoices.id, amount: invoices.amount, status: invoices.status })
+    .from(invoices)
+    .where(and(eq(invoices.month, month), eq(invoices.status, 'open')))
+  const paidThisMonth = await db
+    .select({ amount: invoices.amount })
+    .from(invoices)
+    .where(and(eq(invoices.month, month), eq(invoices.status, 'paid')))
+
+  const billedAmount =
+    currentMonthInvoices.reduce((sum, i) => sum + i.amount, 0) +
+    paidThisMonth.reduce((sum, i) => sum + i.amount, 0)
+
+  const openInvoiceIds = currentMonthInvoices.map((i) => i.id)
+  const appliedForOpen =
+    openInvoiceIds.length > 0
+      ? await db
+          .select({ amount: paymentAllocations.amount })
+          .from(paymentAllocations)
+          .where(
+            and(
+              inArray(paymentAllocations.invoiceId, openInvoiceIds),
+              eq(paymentAllocations.state, 'applied'),
+            ),
+          )
+      : []
+  const collectedAmount =
+    paidThisMonth.reduce((sum, i) => sum + i.amount, 0) + appliedForOpen.reduce((sum, a) => sum + a.amount, 0)
+
+  const overdueInvoices = await db
+    .selectDistinct({ contractorId: invoices.contractorId })
+    .from(invoices)
+    .where(and(eq(invoices.status, 'open'), lte(invoices.month, addMonths(month, -1))))
+
+  return {
+    month,
+    billedAmount,
+    collectedAmount,
+    outstandingAmount: billedAmount - collectedAmount,
+    overdueContractorCount: overdueInvoices.length,
+  }
+}
+
+export type PendingTransfer = {
+  paymentId: string
+  contractorId: string
+  contractorName: string
+  amount: number
+  payerName: string | null
+  paidOn: string | null
+  createdAt: Date
+}
+
+/** 承認待ちの銀行振込報告の一覧（確認日の古い順）。 */
+export async function getPendingTransfers(db: Db): Promise<PendingTransfer[]> {
+  const rows = await db
+    .select({
+      paymentId: payments.id,
+      contractorId: payments.contractorId,
+      contractorName: contractors.name,
+      amount: payments.amount,
+      payerName: payments.payerName,
+      paidOn: payments.paidOn,
+      createdAt: payments.createdAt,
+    })
+    .from(payments)
+    .innerJoin(contractors, eq(contractors.id, payments.contractorId))
+    .where(and(eq(payments.method, 'bank_transfer'), eq(payments.status, 'pending')))
+    .orderBy(payments.createdAt)
+  return rows
+}
+
+export type MatrixCellStatus =
+  'paid' | 'partial' | 'pending' | 'overdue' | 'unpaid' | 'void' | 'not_applicable'
+
+export type PaymentMatrix = {
+  months: YearMonth[]
+  rows: {
+    contractorId: string
+    contractorName: string
+    cells: Partial<Record<YearMonth, MatrixCellStatus>>
+  }[]
+}
+
+/** 直近 monthsBack か月分の入金マトリクス（行=在籍中の契約者、列=月）。
+ *  呼び出し側で先に `syncInvoices(db, { contractorIds: 'all', now })` を
+ *  呼んでおく前提（そうしないと、まだ作られていない今月分の請求が
+ *  「対象外」に見えてしまう）。 */
+export async function getPaymentMatrix(db: Db, now: Date, monthsBack = 12): Promise<PaymentMatrix> {
+  const month = currentMonth(now)
+  const months = monthsBetween(addMonths(month, -(monthsBack - 1)), month)
+
+  const activeContractors = await db
+    .select({ id: contractors.id, name: contractors.name })
+    .from(contractors)
+    .where(isNull(contractors.archivedAt))
+    .orderBy(contractors.name)
+  if (activeContractors.length === 0) return { months, rows: [] }
+
+  const contractorIds = activeContractors.map((c) => c.id)
+  const invoiceRows = await db
+    .select({
+      id: invoices.id,
+      contractorId: invoices.contractorId,
+      month: invoices.month,
+      status: invoices.status,
+      amount: invoices.amount,
+    })
+    .from(invoices)
+    .where(
+      and(
+        inArray(invoices.contractorId, contractorIds),
+        gte(invoices.month, months[0]),
+        lte(invoices.month, months[months.length - 1]),
+      ),
+    )
+
+  const invoiceIds = invoiceRows.map((i) => i.id)
+  const allocationRows =
+    invoiceIds.length > 0
+      ? await db
+          .select({
+            invoiceId: paymentAllocations.invoiceId,
+            amount: paymentAllocations.amount,
+            state: paymentAllocations.state,
+          })
+          .from(paymentAllocations)
+          .where(inArray(paymentAllocations.invoiceId, invoiceIds))
+      : []
+
+  const appliedByInvoice = new Map<string, number>()
+  const pendingInvoiceIds = new Set<string>()
+  for (const a of allocationRows) {
+    if (a.state === 'applied')
+      appliedByInvoice.set(a.invoiceId, (appliedByInvoice.get(a.invoiceId) ?? 0) + a.amount)
+    if (a.state === 'pending') pendingInvoiceIds.add(a.invoiceId)
+  }
+
+  const cellsByContractor = new Map<string, Partial<Record<YearMonth, MatrixCellStatus>>>()
+  for (const invoice of invoiceRows) {
+    const cells = cellsByContractor.get(invoice.contractorId) ?? {}
+    cells[invoice.month as YearMonth] = classifyCell(invoice, {
+      appliedAmount: appliedByInvoice.get(invoice.id) ?? 0,
+      hasPending: pendingInvoiceIds.has(invoice.id),
+      currentMonth: month,
+    })
+    cellsByContractor.set(invoice.contractorId, cells)
+  }
+
+  const rows = activeContractors.map((c) => ({
+    contractorId: c.id,
+    contractorName: c.name,
+    cells: cellsByContractor.get(c.id) ?? {},
+  }))
+  return { months, rows }
+}
+
+function classifyCell(
+  invoice: { status: 'open' | 'paid' | 'void'; month: string },
+  ctx: { appliedAmount: number; hasPending: boolean; currentMonth: YearMonth },
+): MatrixCellStatus {
+  if (invoice.status === 'void') return 'void'
+  if (invoice.status === 'paid') return 'paid'
+  if (ctx.hasPending) return 'pending'
+  if (ctx.appliedAmount > 0) return 'partial'
+  if (compareYearMonth(invoice.month as YearMonth, ctx.currentMonth) < 0) return 'overdue'
+  return 'unpaid'
+}
