@@ -54,3 +54,6 @@ next-env.d.ts
 .vscode/*
 !.vscode/extensions.json
 .idea
+
+# Claude Code（ローカルのdevサーバー起動設定など、開発者ごとの一時ファイル）
+.claude/

@@ -115,13 +115,13 @@
 
 リリースの手順（Runbook）
 
-1. [ ] GitHubリポジトリを作成してpush（非公開を推奨）。Environment `production` に `CLOUDFLARE_API_TOKEN` と `CLOUDFLARE_ACCOUNT_ID` を登録する
-2. [ ] `wrangler d1 create parking` → `database_id` を `wrangler.jsonc` に書く
-3. [ ] Access Application `parking-admin` を作成（§5.2）→ `ACCESS_AUD` と `ACCESS_TEAM_DOMAIN` を `vars` に書く
-4. [ ] `wrangler secret put SESSION_SECRET` / `STRIPE_SECRET_KEY`（**テストキー**）/ `STRIPE_WEBHOOK_SECRET`
-5. [ ] mainにマージ → CIで migration の適用とデプロイ → スモークテスト
-6. [ ] Stripe（テストモード）の Webhook エンドポイントを本番URLで作成し、signing secret を登録し直す
-7. [ ] **本番URLで、テストモードのまま全フローを確認**（オーナーの実際のスマホとPCで、Access のログインも含めて）
+1. [x] GitHubリポジトリを作成してpush（公開リポジトリ。Q4参照）。Environment `production` に `CLOUDFLARE_API_TOKEN` と `CLOUDFLARE_ACCOUNT_ID` を登録する
+2. [x] `wrangler d1 create parking` → `database_id` を `wrangler.jsonc` に書く
+3. [x] Access Application `parking-admin` を作成（§5.2）→ `ACCESS_AUD` と `ACCESS_TEAM_DOMAIN` を `vars` に書く
+4. [x] `wrangler secret put SESSION_SECRET` / `STRIPE_SECRET_KEY`（**テストキー**）/ `STRIPE_WEBHOOK_SECRET`
+5. [x] mainにマージ → CIで migration の適用とデプロイ → スモークテスト
+6. [x] Stripe（テストモード）の Webhook エンドポイントを本番URLで作成し、signing secret を登録し直す
+7. [x] **本番URLで、テストモードのまま全フローを確認**（オーナーの実際のスマホとPCで、Access のログインも含めて）。QRログイン→カード決済（Stripeサンドボックス、テストカード）→領収書発行→ダッシュボード反映まで確認済み
 8. [ ] 確認用のデータを初期化: `wrangler d1 execute parking --remote --command "DELETE FROM ..."`（依存の逆順に消すSQLを `db/reset.sql` として用意しておく）→ `settings` を入れ直す
 9. [ ] Stripe本番アカウントの申請が完了していることを確認 → 本番の Webhook エンドポイントを作成 → `STRIPE_SECRET_KEY` と `STRIPE_WEBHOOK_SECRET` を本番の値に差し替える
 10. [ ] オーナーが設定と契約者を登録 → ログインカードを印刷して配る
