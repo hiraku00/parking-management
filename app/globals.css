@@ -62,10 +62,6 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
-a {
-  color: inherit;
-}
-
 /*
  ---break---
  */
@@ -164,5 +160,12 @@ a {
   }
   html {
     @apply font-sans;
+  }
+  /* base層に置くことで、ButtonのasChild（<a>で描画される場合）などの
+     text-*ユーティリティで上書きできるようにする（layerを付けない素の
+     `a { color: inherit }` はTailwindのutilitiesレイヤーより優先されてしまい、
+     bg-primaryなボタンの文字色がtext-primary-foregroundで指定できなかった）。 */
+  a {
+    color: inherit;
   }
 }

@@ -30,6 +30,9 @@ export default async function AdminLayout({ children }: { children: React.ReactN
             <Link href="/admin/settings" className="text-sm font-medium text-slate-600 hover:text-slate-900">
               設定
             </Link>
+            <Link href="/admin/audit" className="text-sm font-medium text-slate-600 hover:text-slate-900">
+              操作履歴
+            </Link>
           </nav>
           <div className="flex items-center gap-4">
             {owner && <span className="text-sm text-muted-foreground">{owner.email}</span>}

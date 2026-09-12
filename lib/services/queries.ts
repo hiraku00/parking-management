@@ -1,6 +1,7 @@
-import { and, desc, eq, gte, inArray, isNull, lte } from 'drizzle-orm'
+import { and, desc, eq, gte, inArray, isNull, lt, lte } from 'drizzle-orm'
 import type { Db } from '../db/client'
 import {
+  auditLogs,
   contractors,
   invoices,
   payments,
@@ -347,5 +348,50 @@ export async function getReceiptForPayment(db: Db, paymentId: string): Promise<R
     taxAmount: receipt.taxAmount,
     paymentMethodLabel: receipt.paymentMethodLabel,
     issuer: receipt.issuer,
+  }
+}
+
+export type AuditLogEntry = {
+  id: string
+  actor: string
+  action: string
+  entityType: string
+  entityId: string
+  detail: Record<string, unknown> | null
+  createdAt: Date
+}
+
+export type AuditLogPage = {
+  entries: AuditLogEntry[]
+  hasMore: boolean
+}
+
+const AUDIT_PAGE_SIZE = 50
+
+/**
+ * 監査ログを新しい順に返す（簡易なページング。`before` にそのページ最後の
+ * `createdAt` を渡すと続きを取得できる）。参照: docs/design/07-screens.md §7.2
+ */
+export async function getAuditLogs(db: Db, params: { before?: Date } = {}): Promise<AuditLogPage> {
+  const rows = await db
+    .select()
+    .from(auditLogs)
+    .where(params.before ? lt(auditLogs.createdAt, params.before) : undefined)
+    .orderBy(desc(auditLogs.createdAt))
+    .limit(AUDIT_PAGE_SIZE + 1)
+
+  const hasMore = rows.length > AUDIT_PAGE_SIZE
+  const page = hasMore ? rows.slice(0, AUDIT_PAGE_SIZE) : rows
+  return {
+    entries: page.map((r) => ({
+      id: r.id,
+      actor: r.actor,
+      action: r.action,
+      entityType: r.entityType,
+      entityId: r.entityId,
+      detail: r.detail,
+      createdAt: r.createdAt,
+    })),
+    hasMore,
   }
 }

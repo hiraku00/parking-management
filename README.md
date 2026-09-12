@@ -2,11 +2,11 @@
 
 月極駐車場の契約者管理、毎月の請求、入金（カード決済・銀行振込・現金）、領収書発行を行うWebアプリケーションです。
 
-## 現在のステータス: Phase 0（リポジトリの骨組み）完了
+## 現在のステータス: Phase 5（仕上げ）完了
 
 このリポジトリは、Vercel + Supabase で動いていた旧実装を土台に、**Cloudflare上で完結する構成へ全面的に作り替える**ために新規作成しました。本番利用はまだ開始していないため、データ移行は不要です。
 
-vinext + Cloudflare Workers の骨組みができた段階で、画面やDBはまだ実装していません（[08-implementation-plan.md](docs/design/08-implementation-plan.md) の Phase 1 以降）。
+契約者管理・請求生成・入金（カード決済／銀行振込／現金）・領収書発行・監査ログ・特定商取引法/プライバシーポリシーの表示まで実装済みで、E2Eテストとアクセシビリティ確認も揃っています（[08-implementation-plan.md](docs/design/08-implementation-plan.md) Phase 0〜5）。残るのは Phase 6（本番構築とリリース）のみです。
 
 - 旧実装（Next.js 16 + Supabase + Stripe / Vercel）は、このリポジトリの最初のコミットにそのまま残しています。参照する場合は `git log` の最初のコミットを確認してください。
 - v2 の設計は [docs/design/](docs/design/README.md) にまとまっています。実装はこの設計に沿って進めます。
@@ -49,15 +49,18 @@ npm run dev        # http://localhost:3210 相当のポートで vinext dev サ�
 ### 検証コマンド
 
 ```bash
-npm run lint        # ESLint
-npm run format      # Prettier（--check）
-npm run typecheck   # wrangler types && tsc --noEmit
-npm test            # Vitest（ユニットテスト）
-npm run build       # vinext build（Worker向けビルド）
-npm run test:e2e    # Playwright（ビルド不要、devサーバーを自動起動）
+npm run lint             # ESLint
+npm run format           # Prettier（--check）
+npm run typecheck        # wrangler types && tsc --noEmit
+npm test                 # Vitest（ユニットテスト）
+npm run test:integration # Vitest + Miniflare（D1を使う統合テスト）
+npm run build            # vinext build（Worker向けビルド）
+npm run test:e2e         # Playwright（ビルド不要、devサーバーを自動起動）
 ```
 
-D1・Cloudflare Access・Stripeとの連携はまだ設定していません（`wrangler.jsonc` にプレースホルダーとして記載）。実際の値は [08-implementation-plan.md](docs/design/08-implementation-plan.md) の Phase 1〜6 で設定します。
+E2E（`e2e/parking.pw.ts`）は、オーナー登録→請求、QRログイン→振込報告→承認→領収書、予備ログインのロック、現金の一部入金→完済、契約者向け画面のアクセシビリティ（axe、375px幅）を確認します。`.dev.vars` が無い環境（CIなど）では `scripts/ensure-dev-vars.mjs` がE2E専用の非機密なダミー値を自動生成します。カード決済がStripeのCheckoutページへ遷移することを確認するテストは、実際のStripeテストキーが必要なため既定では実行しません（`STRIPE_TEST_MODE=1` を設定すると実行されます）。
+
+D1・Cloudflare Access・Stripeとの連携はローカル開発用のプレースホルダー止まりです（`wrangler.jsonc`）。本番の値は [08-implementation-plan.md](docs/design/08-implementation-plan.md) の Phase 6（本番構築とリリース）で設定します。`.github/workflows/deploy.yml` は `main` へのpushで自動デプロイしますが、`production` Environment に `CLOUDFLARE_API_TOKEN` 等が登録されるまでは各ステップをスキップします。
 
 ## ライセンス
 
