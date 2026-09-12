@@ -17,10 +17,10 @@
 | QRコード       | `uqr`（依存ゼロでSVGを生成）                                          | 最新                                            | サーバー側でSVGを生成し、ログインカードを印刷する                |
 | テスト         | vitest / `@cloudflare/vitest-pool-workers` / Playwright               | 5.x / 0.22 / 1.63                               |                                                                  |
 | Lint/Format    | ESLint 9（flat config）/ Prettier                                     |                                                 |                                                                  |
-| Node           | 24 LTS                                                                |                                                 | `.node-version`                                                  |
+| Node           | 22 LTS 以上                                                           |                                                 | `.node-version`                                                  |
 | CI/CD          | GitHub Actions + wrangler                                             | wrangler 4.13x                                  |                                                                  |
 
-> **vinextのリスクと退避策**: vinextは「本番利用はまだ推奨されない」段階です。そこでアプリのコードは、標準のNext.js API（`next/navigation`, `next/headers`, `next/cache`, Server Actions, Route Handlers, `proxy.ts`）と `cloudflare:workers` の `env` だけで書きます。vinextで問題が出た場合は、`@opennextjs/cloudflare` にビルドとデプロイの設定だけを差し替えて移れるようにしておきます。`next/font` は使いません（vinextでは部分対応のため）。
+> **vinextのリスクと退避策**: vinextは、Cloudflareが「WorkersでNext.jsを動かす既定の方法」として公式に推奨していますが、まだベータです。そこでアプリのコードは、標準のNext.js API（`next/navigation`, `next/headers`, `next/cache`, Server Actions, Route Handlers, `proxy.ts`）と `cloudflare:workers` の `env` だけで書きます。vinextで問題が出た場合は、`@opennextjs/cloudflare` にビルドとデプロイの設定だけを差し替えて移れるようにしておきます。`next/font` は使いません（vinextでは部分対応のため）。
 
 ## 3.2 全体構成
 
@@ -86,6 +86,28 @@ flowchart LR
 ```
 
 ローカルでは `.dev.vars`（gitignoreに入れる）に `APP_ENV=development`、`SESSION_SECRET`、Stripeのテストキー、`DEV_OWNER_EMAIL` を置きます。
+
+### 各サービスの採否
+
+このシステムの規模（契約者10名以下、オーナー1名）と要件（個人データと金額を扱う）に照らして、サービスごとに判断しています。
+
+| サービス                                                   | 判断                       | 理由                                                                                                                                                                      |
+| ---------------------------------------------------------- | -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Workers + Static Assets                                    | 採用                       | 画面、API、静的ファイルを1つのWorkerで配信する。この規模なら無料枠に収まる                                                                                                |
+| vinext                                                     | 採用                       | Cloudflareが公式に推奨する、WorkersでNext.jsを動かす既定の方法。ベータへの備えは §3.1                                                                                     |
+| D1                                                         | 採用                       | データは小さなリレーショナルデータ。外部キー、CHECK、`batch()` による原子的な書き込みが使える。休止しない                                                                 |
+| Access（`/admin` のパスのみ）                              | 採用                       | オーナーは1名。パスワードを保存・管理しなくてよい。無料枠（50ユーザー）に収まる。Cloudflareの推奨どおり、アプリ側でもJWTを検証する（§5.2）                                |
+| Rate Limiting binding                                      | 採用                       | 予備ログインの総当たり対策。カウンタは拠点ごとで厳密ではないため、D1での契約者単位のロックと組み合わせる（§5.3）                                                          |
+| Workers Logs（observability）                              | 採用                       | 障害の調査用。氏名や電話番号はログに出さない（§5.7）                                                                                                                      |
+| Secrets（`wrangler secret`）                               | 採用                       | Stripeのキーとセッションの署名鍵                                                                                                                                          |
+| D1 Time Travel                                             | 採用                       | 追加の設定なしで使える、時点を指定した復元                                                                                                                                |
+| エッジキャッシュ（vinextのCDNキャッシュ、`cache.enabled`） | 不採用                     | ほぼ全画面が個人データを含む。キャッシュ対象と誤判定されたページが他人に表示される危険に対し、この規模では得るものが無い。HTMLは `Cache-Control: no-store` にする（§5.5） |
+| KV                                                         | 不採用                     | vinextのデータキャッシュ以外に用途が無く、上記の理由で不要                                                                                                                |
+| R2                                                         | 不採用                     | 保存するファイルが無い（領収書はHTMLをブラウザで印刷する）                                                                                                                |
+| Cron Triggers                                              | 不採用                     | 請求は冪等な関数で表示時に生成する（D10）                                                                                                                                 |
+| Images                                                     | 不採用                     | 最適化が必要な画像が無い                                                                                                                                                  |
+| Turnstile                                                  | 不採用（必要になれば追加） | ログインはQRが主で、予備ログインはレート制限とロックで守る                                                                                                                |
+| Email Service                                              | 保留（v1.1）               | 送信元として独自ドメインが必要（§1.4）                                                                                                                                    |
 
 ## 3.4 ディレクトリ構成
 
