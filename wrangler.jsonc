@@ -36,5 +36,9 @@
     "ACCESS_TEAM_DOMAIN": "",
     "ACCESS_AUD": "",
     "OWNER_EMAILS": "hiraku00@gmail.com",
+    // 本番では常に空。ローカルの .dev.vars でだけ値を入れ、Access をバイパスする
+    // （lib/auth/owner.ts）。ここに書くのは、CIなど .dev.vars が無い環境でも
+    // `wrangler types` がこのキーの型を生成できるようにするため。
+    "DEV_OWNER_EMAIL": "",
   },
 }
