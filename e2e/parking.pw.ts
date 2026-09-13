@@ -93,7 +93,7 @@ test.describe('契約者: QRログイン→振込報告→承認→領収書', (
     await contractorPage.getByLabel('振込名義').fill(c.name)
     await contractorPage.getByRole('button', { name: '振込を報告する' }).click()
     await expect(contractorPage).toHaveURL(/\/portal(\?.*)?$/)
-    await expect(contractorPage.getByText('確認中のお支払いがあります')).toBeVisible()
+    await expect(contractorPage.getByText('確認できたら、ここに ✅ が付きます')).toBeVisible()
 
     // オーナーが承認する
     await page.goto('/admin/payments')

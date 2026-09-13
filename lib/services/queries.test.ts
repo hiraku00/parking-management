@@ -4,7 +4,14 @@ import { getDb, type Db } from '../db/client'
 import { invoices, payments, paymentAllocations } from '../db/schema'
 import { migrate, resetData } from '../../test/support/migrate'
 import { insertAllocation, insertContractor, insertSettings } from '../../test/support/fixtures'
-import { getDashboardKpi, getPaymentMatrix, getPendingTransfers } from './queries'
+import {
+  getDashboardKpi,
+  getLatestRejectedTransfer,
+  getPaymentMatrix,
+  getPendingCardPayment,
+  getPendingTransfers,
+  getUnpaidInvoicesForContractor,
+} from './queries'
 
 let db: Db
 const now = new Date('2026-09-15T00:00:00.000Z') // currentMonth = 2026-09
@@ -102,5 +109,99 @@ describe('getPaymentMatrix', () => {
     await insertContractor(db, { archivedAt: new Date() })
     const matrix = await getPaymentMatrix(db, now, 1)
     expect(matrix.rows).toHaveLength(0)
+  })
+})
+
+describe('getUnpaidInvoicesForContractor', () => {
+  it('今月より前をoverdue、今月をcurrent、来月以降をfutureに分類する', async () => {
+    const contractorId = await insertContractor(db, { contractStartMonth: '2026-07' })
+    await db.insert(invoices).values([
+      { contractorId, month: '2026-08', amount: 3000 },
+      { contractorId, month: '2026-09', amount: 3000 },
+      { contractorId, month: '2026-10', amount: 3000 },
+    ])
+
+    const rows = await getUnpaidInvoicesForContractor(db, contractorId, now)
+    const byMonth = Object.fromEntries(rows.map((r) => [r.month, r.timing]))
+    expect(byMonth['2026-08']).toBe('overdue')
+    expect(byMonth['2026-09']).toBe('current')
+    expect(byMonth['2026-10']).toBe('future')
+  })
+
+  it('pendingの配分が付いている請求は hasPendingAllocation=true になる', async () => {
+    const contractorId = await insertContractor(db, { contractStartMonth: '2026-09' })
+    const [inv] = await db
+      .insert(invoices)
+      .values({ contractorId, month: '2026-09', amount: 3000 })
+      .returning({ id: invoices.id })
+    await insertAllocation(db, { invoiceId: inv.id, contractorId, state: 'pending' })
+
+    const rows = await getUnpaidInvoicesForContractor(db, contractorId, now)
+    expect(rows[0].hasPendingAllocation).toBe(true)
+  })
+})
+
+describe('getPendingCardPayment', () => {
+  it('カードのpending中の入金を、対象月付きで返す', async () => {
+    const contractorId = await insertContractor(db, { contractStartMonth: '2026-09' })
+    const [inv] = await db
+      .insert(invoices)
+      .values({ contractorId, month: '2026-09', amount: 3000 })
+      .returning({ id: invoices.id })
+    const [payment] = await db
+      .insert(payments)
+      .values({ contractorId, method: 'card', channel: 'portal', status: 'pending', amount: 3000 })
+      .returning({ id: payments.id })
+    await db
+      .insert(paymentAllocations)
+      .values({ paymentId: payment.id, invoiceId: inv.id, amount: 3000, state: 'pending' })
+
+    const result = await getPendingCardPayment(db, contractorId)
+    expect(result).toEqual({ paymentId: payment.id, months: ['2026-09'], amount: 3000 })
+  })
+
+  it('pending中のカード決済が無ければnull', async () => {
+    const contractorId = await insertContractor(db)
+    expect(await getPendingCardPayment(db, contractorId)).toBeNull()
+  })
+
+  it('銀行振込のpendingはカードのpendingとして返さない', async () => {
+    const contractorId = await insertContractor(db, { contractStartMonth: '2026-09' })
+    await db
+      .insert(payments)
+      .values({ contractorId, method: 'bank_transfer', channel: 'portal', status: 'pending', amount: 3000 })
+    expect(await getPendingCardPayment(db, contractorId)).toBeNull()
+  })
+})
+
+describe('getLatestRejectedTransfer', () => {
+  it('直近の却下された振込を、対象月と理由付きで返す', async () => {
+    const contractorId = await insertContractor(db, { contractStartMonth: '2026-09' })
+    const [inv] = await db
+      .insert(invoices)
+      .values({ contractorId, month: '2026-09', amount: 3000 })
+      .returning({ id: invoices.id })
+    const [payment] = await db
+      .insert(payments)
+      .values({
+        contractorId,
+        method: 'bank_transfer',
+        channel: 'portal',
+        status: 'rejected',
+        amount: 3000,
+        rejectReason: '入金が確認できません',
+      })
+      .returning({ id: payments.id })
+    await db
+      .insert(paymentAllocations)
+      .values({ paymentId: payment.id, invoiceId: inv.id, amount: 3000, state: 'released' })
+
+    const result = await getLatestRejectedTransfer(db, contractorId)
+    expect(result).toEqual({ paymentId: payment.id, months: ['2026-09'], reason: '入金が確認できません' })
+  })
+
+  it('却下された振込が無ければnull', async () => {
+    const contractorId = await insertContractor(db)
+    expect(await getLatestRejectedTransfer(db, contractorId)).toBeNull()
   })
 })
