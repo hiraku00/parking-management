@@ -202,7 +202,9 @@ export type PortalUnpaidInvoice = {
   month: YearMonth
   amount: number
   remaining: number
-  isOverdue: boolean
+  /** 今月より前 / 今月 / 前払い対象（来月以降）。ホームの状態判定に使う
+   *  （lib/domain/portal-home.ts の `HomeInvoice.timing`）。 */
+  timing: 'overdue' | 'current' | 'future'
   hasPendingAllocation: boolean
 }
 
@@ -238,14 +240,72 @@ export async function getUnpaidInvoicesForContractor(
     if (a.state === 'pending') pendingInvoiceIds.add(a.invoiceId)
   }
 
-  return rows.map((r) => ({
-    id: r.id,
-    month: r.month as YearMonth,
-    amount: r.amount,
-    remaining: r.amount - (appliedByInvoice.get(r.id) ?? 0),
-    isOverdue: compareYearMonth(r.month as YearMonth, month) < 0,
-    hasPendingAllocation: pendingInvoiceIds.has(r.id),
-  }))
+  return rows.map((r) => {
+    const cmp = compareYearMonth(r.month as YearMonth, month)
+    return {
+      id: r.id,
+      month: r.month as YearMonth,
+      amount: r.amount,
+      remaining: r.amount - (appliedByInvoice.get(r.id) ?? 0),
+      timing: cmp < 0 ? 'overdue' : cmp === 0 ? 'current' : 'future',
+      hasPendingAllocation: pendingInvoiceIds.has(r.id),
+    }
+  })
+}
+
+export type PendingCardPayment = { paymentId: string; months: YearMonth[]; amount: number }
+
+/** 契約者本人が手続き中のカード決済（Checkoutの途中）を1件返す。無ければnull。 */
+export async function getPendingCardPayment(
+  db: Db,
+  contractorId: string,
+): Promise<PendingCardPayment | null> {
+  const payment = await db.query.payments.findFirst({
+    where: and(
+      eq(payments.contractorId, contractorId),
+      eq(payments.method, 'card'),
+      eq(payments.status, 'pending'),
+    ),
+  })
+  if (!payment) return null
+
+  const allocationRows = await db
+    .select({ month: invoices.month })
+    .from(paymentAllocations)
+    .innerJoin(invoices, eq(invoices.id, paymentAllocations.invoiceId))
+    .where(eq(paymentAllocations.paymentId, payment.id))
+
+  return {
+    paymentId: payment.id,
+    months: allocationRows.map((r) => r.month as YearMonth).sort(),
+    amount: payment.amount,
+  }
+}
+
+export type RejectedTransfer = { paymentId: string; months: YearMonth[]; reason: string | null }
+
+/** 契約者本人の直近の却下された振込を1件返す（無ければnull）。 */
+export async function getLatestRejectedTransfer(
+  db: Db,
+  contractorId: string,
+): Promise<RejectedTransfer | null> {
+  const payment = await db.query.payments.findFirst({
+    where: and(eq(payments.contractorId, contractorId), eq(payments.status, 'rejected')),
+    orderBy: desc(payments.createdAt),
+  })
+  if (!payment) return null
+
+  const allocationRows = await db
+    .select({ month: invoices.month })
+    .from(paymentAllocations)
+    .innerJoin(invoices, eq(invoices.id, paymentAllocations.invoiceId))
+    .where(eq(paymentAllocations.paymentId, payment.id))
+
+  return {
+    paymentId: payment.id,
+    months: allocationRows.map((r) => r.month as YearMonth).sort(),
+    reason: payment.rejectReason,
+  }
 }
 
 export type PortalPaymentHistoryItem = {

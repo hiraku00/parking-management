@@ -2,139 +2,185 @@ import Link from 'next/link'
 import { appEnv } from '@/lib/env'
 import { getDb } from '@/lib/db/client'
 import { requireContractor } from '@/lib/auth/contractor-session'
-import { getPaymentHistoryForContractor, getUnpaidInvoicesForContractor } from '@/lib/services/queries'
-import { formatMonthJa } from '@/lib/domain/time'
+import {
+  getLatestRejectedTransfer,
+  getPaymentHistoryForContractor,
+  getPendingCardPayment,
+  getUnpaidInvoicesForContractor,
+} from '@/lib/services/queries'
+import { deriveHomeState } from '@/lib/domain/portal-home'
+import { formatMonthJa, type YearMonth } from '@/lib/domain/time'
 import { formatYen } from '@/lib/domain/money'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { StatusBadge } from '@/components/portal/status-badge'
 
 const METHOD_LABEL: Record<string, string> = {
-  card: 'クレジットカード',
+  card: 'カード・スマホ決済',
   bank_transfer: '銀行振込',
   cash: '現金',
   other: 'その他',
 }
 
+function monthsLabel(months: YearMonth[]): string {
+  return months.map(formatMonthJa).join('と')
+}
+
 export default async function PortalHomePage() {
   const db = getDb(appEnv().DB)
   const contractor = await requireContractor(db)
+  const now = new Date()
 
-  const [unpaidInvoices, paymentHistory] = await Promise.all([
-    getUnpaidInvoicesForContractor(db, contractor.id, new Date()),
+  const [unpaidInvoices, pendingCardPayment, latestRejected, paymentHistory] = await Promise.all([
+    getUnpaidInvoicesForContractor(db, contractor.id, now),
+    getPendingCardPayment(db, contractor.id),
+    getLatestRejectedTransfer(db, contractor.id),
     getPaymentHistoryForContractor(db, contractor.id),
   ])
 
-  const pendingHistory = paymentHistory.filter((p) => p.status === 'pending')
-  const rejectedHistory = paymentHistory.filter((p) => p.status === 'rejected')
-  const totalUnpaid = unpaidInvoices.reduce((sum, i) => sum + i.remaining, 0)
+  const state = deriveHomeState({
+    invoices: unpaidInvoices.map((i) => ({
+      id: i.id,
+      month: i.month,
+      remaining: i.remaining,
+      timing: i.timing,
+      pending: i.hasPendingAllocation,
+    })),
+    pendingCardPayment,
+    latestRejected,
+  })
+
+  const succeededHistory = paymentHistory.filter((p) => p.status === 'succeeded').slice(0, 3)
+
+  // 「支払いが必要」を優先して主表示にするため、確認中の月があってもderiveHomeStateの
+  // 主状態には出ない。見落とされないよう、needs_payment/rejected のときは補足として出す
+  // （docs/design/09-ux-improvements.md §9.4.1 のモックアップ「⏳ 確認中があれば、補足として1行」）。
+  const alsoPendingMonths = unpaidInvoices.filter((i) => i.hasPendingAllocation).map((i) => i.month)
 
   return (
     <div className="space-y-6">
       <Card>
         <CardContent className="space-y-1 p-4">
-          <p className="text-base">
+          <p className="text-lg font-bold text-slate-900">
             {contractor.name} 様
-            {contractor.spaceLabel && <span className="ml-2">区画 {contractor.spaceLabel}</span>}
+            {contractor.spaceLabel && <span className="ml-2 font-normal">区画 {contractor.spaceLabel}</span>}
           </p>
-          <p className="text-sm text-muted-foreground">月額 {formatYen(contractor.monthlyFee)}</p>
+          <p className="text-base text-muted-foreground">月額 {formatYen(contractor.monthlyFee)}</p>
         </CardContent>
       </Card>
 
-      {pendingHistory.length > 0 && (
-        <Card className="border-amber-200 bg-amber-50">
-          <CardContent className="p-4 text-amber-900">
-            <p className="font-bold">⏳ 確認中のお支払いがあります</p>
-            <ul className="mt-1 space-y-0.5 text-sm">
-              {pendingHistory.map((p) => (
-                <li key={p.id}>
-                  {p.months.map(formatMonthJa).join('、') || '対象月確認中'}分（{formatYen(p.amount)}）
-                </li>
-              ))}
-            </ul>
-          </CardContent>
-        </Card>
-      )}
-
-      {rejectedHistory.length > 0 && (
-        <Card className="border-destructive/30 bg-destructive/5">
-          <CardContent className="p-4 text-destructive">
-            <p className="font-bold">❌ 振込が確認できませんでした</p>
-            <ul className="mt-1 space-y-1 text-sm">
-              {rejectedHistory.map((p) => (
-                <li key={p.id}>
-                  {p.months.map(formatMonthJa).join('、')}分
-                  {p.rejectReason && <span className="block text-xs">理由: {p.rejectReason}</span>}
-                </li>
-              ))}
-            </ul>
-          </CardContent>
-        </Card>
-      )}
-
       <Card>
         <CardContent className="space-y-4 p-4">
-          <h2 className="text-lg font-bold text-slate-900">お支払い</h2>
-          {unpaidInvoices.length === 0 ? (
-            <p className="text-base text-muted-foreground">✅ お支払いが必要な月はありません</p>
-          ) : (
+          {state.kind === 'card_in_progress' && (
             <>
-              <ul className="space-y-2">
-                {unpaidInvoices.map((inv) => (
-                  <li
-                    key={inv.id}
-                    className="flex items-center justify-between rounded-md border p-3 text-base"
-                  >
-                    <span className="flex items-center gap-2">
-                      {inv.isOverdue && <span aria-hidden>⚠️</span>}
-                      {formatMonthJa(inv.month)}
-                    </span>
-                    <span className="font-semibold">{formatYen(inv.remaining)}</span>
-                  </li>
-                ))}
-              </ul>
-              <div className="flex items-center justify-between border-t pt-4">
-                <span className="text-base font-bold">合計 {formatYen(totalUnpaid)}</span>
-                <Button asChild size="lg" className="h-14 px-8 text-lg font-bold">
-                  <Link href="/portal/pay">お支払いへ進む</Link>
+              <p className="text-lg font-bold text-slate-900">💳 カードのお支払いが途中です</p>
+              <p className="text-base">
+                {monthsLabel(state.months)}分 {formatYen(state.amount)}
+              </p>
+              {/* 続き・取り消しの操作は Issue #16（このPRに依存する後続PR）で実装する。
+                  ここでは既存の戻り画面（決済状況の確認・Webhookとの冪等な確定処理）へ誘導する。 */}
+              <Button asChild size="lg" className="h-14 w-full text-lg font-bold">
+                <Link href={`/portal/payments/${state.paymentId}/complete`}>お支払いを確認する</Link>
+              </Button>
+              <p className="text-base text-muted-foreground">30分たつと自動で取り消されます。</p>
+            </>
+          )}
+
+          {state.kind === 'rejected' && (
+            <>
+              <p className="text-lg font-bold text-destructive">
+                <StatusBadge kind="rejected" /> {monthsLabel(state.months)}分の振込
+              </p>
+              {state.reason && <p className="text-base">理由: {state.reason}</p>}
+              <Button asChild size="lg" className="h-14 w-full text-lg font-bold">
+                <Link href="/portal/pay">もう一度お支払いする</Link>
+              </Button>
+            </>
+          )}
+
+          {state.kind === 'needs_payment' && (
+            <>
+              {state.overdue ? (
+                <p className="text-lg font-bold">
+                  <StatusBadge kind="overdue" />
+                </p>
+              ) : null}
+              <p className="text-lg font-bold text-slate-900">{monthsLabel(state.months)}分</p>
+              <p className="text-3xl font-bold text-slate-900">{formatYen(state.amount)}</p>
+              <Button asChild size="lg" className="h-14 w-full text-lg font-bold">
+                <Link href="/portal/pay">お支払いへ進む</Link>
+              </Button>
+            </>
+          )}
+
+          {state.kind === 'waiting_confirmation' && (
+            <>
+              <p className="text-lg font-bold text-slate-900">
+                <StatusBadge kind="pending" /> {monthsLabel(state.months)}分
+              </p>
+              <p className="text-base text-muted-foreground">
+                確認できたら、ここに ✅ が付きます（通常1〜3日）。
+              </p>
+            </>
+          )}
+
+          {state.kind === 'all_paid' && (
+            <>
+              <p className="text-lg font-bold text-slate-900">
+                <StatusBadge kind="paid" />
+              </p>
+              {state.nextMonth && (
+                <Button asChild variant="outline" size="lg" className="h-12 w-full text-base">
+                  <Link href="/portal/pay">
+                    {formatMonthJa(state.nextMonth.month)}分を先に払う（{formatYen(state.nextMonth.amount)}）
+                  </Link>
                 </Button>
-              </div>
+              )}
             </>
           )}
         </CardContent>
       </Card>
 
+      {(state.kind === 'needs_payment' || state.kind === 'rejected') && alsoPendingMonths.length > 0 && (
+        <p className="text-base text-muted-foreground">
+          <StatusBadge kind="pending" /> {monthsLabel(alsoPendingMonths)}分の振込を確認しています
+        </p>
+      )}
+
       <div className="space-y-3">
-        <h2 className="text-lg font-bold text-slate-900">お支払いの履歴</h2>
-        {paymentHistory.length === 0 ? (
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-bold text-slate-900">お支払いの履歴</h2>
+          <Link href="/portal/history" className="text-base text-primary hover:underline">
+            すべて見る ›
+          </Link>
+        </div>
+        {succeededHistory.length === 0 ? (
           <p className="text-base text-muted-foreground">まだお支払いの履歴はありません。</p>
         ) : (
-          paymentHistory
-            .filter((p) => p.status === 'succeeded')
-            .map((p) => (
-              <Card key={p.id}>
-                <CardContent className="flex items-center justify-between p-4">
-                  <div>
-                    <p className="text-base font-medium">{p.months.map(formatMonthJa).join('、') || '-'}</p>
-                    <p className="text-sm text-muted-foreground">
-                      {formatYen(p.amount)} ・ {METHOD_LABEL[p.method]}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <Badge>支払済</Badge>
-                    {p.hasReceipt && (
-                      <Link
-                        href={`/portal/payments/${p.id}/receipt`}
-                        target="_blank"
-                        className="text-sm text-primary hover:underline"
-                      >
-                        📄 領収書
-                      </Link>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            ))
+          succeededHistory.map((p) => (
+            <Card key={p.id}>
+              <CardContent className="flex items-center justify-between p-4">
+                <div>
+                  <p className="text-base font-medium">{p.months.map(formatMonthJa).join('、') || '-'}</p>
+                  <p className="text-base text-muted-foreground">
+                    {formatYen(p.amount)} ・ {METHOD_LABEL[p.method]}
+                  </p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <Badge>支払済</Badge>
+                  {p.hasReceipt && (
+                    <Link
+                      href={`/portal/payments/${p.id}/receipt`}
+                      className="min-h-12 text-base text-primary hover:underline"
+                    >
+                      📄 領収書
+                    </Link>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          ))
         )}
       </div>
     </div>
