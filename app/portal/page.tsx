@@ -9,6 +9,7 @@ import {
   getUnpaidInvoicesForContractor,
 } from '@/lib/services/queries'
 import { deriveHomeState } from '@/lib/domain/portal-home'
+import { resumeCardCheckoutAction, cancelCardCheckoutAction } from './actions'
 import { formatMonthJa, type YearMonth } from '@/lib/domain/time'
 import { formatYen } from '@/lib/domain/money'
 import { Button } from '@/components/ui/button'
@@ -78,11 +79,16 @@ export default async function PortalHomePage() {
               <p className="text-base">
                 {monthsLabel(state.months)}分 {formatYen(state.amount)}
               </p>
-              {/* 続き・取り消しの操作は Issue #16（このPRに依存する後続PR）で実装する。
-                  ここでは既存の戻り画面（決済状況の確認・Webhookとの冪等な確定処理）へ誘導する。 */}
-              <Button asChild size="lg" className="h-14 w-full text-lg font-bold">
-                <Link href={`/portal/payments/${state.paymentId}/complete`}>お支払いを確認する</Link>
-              </Button>
+              <form action={resumeCardCheckoutAction.bind(null, state.paymentId)}>
+                <Button type="submit" size="lg" className="h-14 w-full text-lg font-bold">
+                  お支払いを続ける
+                </Button>
+              </form>
+              <form action={cancelCardCheckoutAction.bind(null, state.paymentId)}>
+                <Button type="submit" variant="outline" size="lg" className="h-12 w-full text-base">
+                  やめる
+                </Button>
+              </form>
               <p className="text-base text-muted-foreground">30分たつと自動で取り消されます。</p>
             </>
           )}
