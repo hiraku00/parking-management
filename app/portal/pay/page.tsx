@@ -26,7 +26,7 @@ export default async function PayPage({ searchParams }: { searchParams: Promise<
     return (
       <div className="space-y-4 text-center">
         <p className="text-base text-slate-700">お支払いが必要な月はありません。</p>
-        <Link href="/portal" className="text-primary hover:underline">
+        <Link href="/portal" className="min-h-12 text-base text-primary hover:underline">
           ‹ 戻る
         </Link>
       </div>

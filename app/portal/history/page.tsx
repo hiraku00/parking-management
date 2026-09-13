@@ -25,7 +25,7 @@ export default async function PortalHistoryPage() {
   return (
     <div className="space-y-4">
       <div>
-        <Link href="/portal" className="text-base text-muted-foreground hover:underline">
+        <Link href="/portal" className="min-h-12 text-base text-muted-foreground hover:underline">
           ‹ ホームに戻る
         </Link>
       </div>
