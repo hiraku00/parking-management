@@ -15,7 +15,18 @@ import AxeBuilder from '@axe-core/playwright'
 // 一通り訪れておき、依存関係の事前バンドルを済ませておく。
 test.beforeAll(async ({ browser }) => {
   const page = await browser.newPage()
-  for (const url of ['/', '/admin', '/admin/contractors/new', '/admin/payments', '/admin/audit']) {
+  for (const url of [
+    '/',
+    '/admin',
+    '/admin/contractors/new',
+    '/admin/payments',
+    '/admin/audit',
+    '/portal',
+    '/portal/history',
+    '/portal/pay',
+    '/portal/pay/transfer',
+    '/portal/pay/transfer/done/warmup',
+  ]) {
     await page.goto(url)
   }
   await page.close()
@@ -92,8 +103,12 @@ test.describe('契約者: QRログイン→振込報告→承認→領収書', (
     // テスト用の契約者はフリガナ未設定のため、振込名義は初期値が空になる
     await contractorPage.getByLabel('振込名義').fill(c.name)
     await contractorPage.getByRole('button', { name: '振込を報告する' }).click()
-    await expect(contractorPage).toHaveURL(/\/portal(\?.*)?$/)
-    await expect(contractorPage.getByText('確認できたら、ここに ✅ が付きます')).toBeVisible()
+    // 振込報告の完了画面（U2）に遷移し、押した結果がその場で分かる
+    await expect(contractorPage).toHaveURL(/\/portal\/pay\/transfer\/done\//)
+    await expect(contractorPage.getByText('ご連絡ありがとうございます')).toBeVisible()
+    await expect(contractorPage.getByText('お振り込みを確認できたら、ホームに ✅ が付きます')).toBeVisible()
+    await contractorPage.getByRole('link', { name: 'ホームに戻る' }).click()
+    await expect(contractorPage).toHaveURL(/\/portal$/)
 
     // オーナーが承認する
     await page.goto('/admin/payments')
@@ -102,12 +117,43 @@ test.describe('契約者: QRログイン→振込報告→承認→領収書', (
     await expect(page.getByText('完了')).toBeVisible()
 
     // 契約者に領収書が表示される
-    await contractorPage.reload()
+    await contractorPage.goto('/portal')
     await contractorPage.getByRole('link', { name: '📄 領収書' }).first().click()
     await expect(contractorPage.getByText('領収書')).toBeVisible()
     await expect(contractorPage.getByText(`${c.name} 様`)).toBeVisible()
 
     await contractorContext.close()
+  })
+
+  test('他人の振込完了画面は404になる', async ({ page, browser }) => {
+    const a = uniqueContractor()
+    await registerContractor(page, a)
+    const loginUrlA = await issueLoginUrl(page)
+
+    const contextA = await browser.newContext()
+    const pageA = await contextA.newPage()
+    await pageA.goto(loginUrlA)
+    await pageA.getByRole('link', { name: 'お支払いへ進む' }).click()
+    await pageA.waitForTimeout(300)
+    await pageA.getByLabel('銀行振込').check()
+    await pageA.getByRole('button', { name: 'この内容で進む' }).click()
+    await pageA.getByLabel('振込名義').fill(a.name)
+    await pageA.getByRole('button', { name: '振込を報告する' }).click()
+    await expect(pageA).toHaveURL(/\/portal\/pay\/transfer\/done\//)
+    const paymentUrlA = pageA.url()
+
+    const b = uniqueContractor()
+    await registerContractor(page, b)
+    const loginUrlB = await issueLoginUrl(page)
+
+    const contextB = await browser.newContext()
+    const pageB = await contextB.newPage()
+    await pageB.goto(loginUrlB)
+    const response = await pageB.goto(paymentUrlA)
+    expect(response?.status()).toBe(404)
+
+    await contextA.close()
+    await contextB.close()
   })
 
   test('契約者向け画面にアクセシビリティ違反が無い（375px幅）', async ({ page }) => {
