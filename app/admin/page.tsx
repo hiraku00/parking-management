@@ -8,6 +8,7 @@ import {
   getPendingTransfers,
   type MatrixCellStatus,
 } from '@/lib/services/queries'
+import { getSettings } from '@/lib/services/settings'
 import { formatMonthJa } from '@/lib/domain/time'
 import { formatYen } from '@/lib/domain/money'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -39,10 +40,11 @@ export default async function AdminDashboardPage() {
   // 表示前に必ず最新化する（D10: syncInvoicesは画面表示のたびに呼ぶ冪等な関数）
   await syncInvoices(db, { contractorIds: 'all', now })
 
+  const settings = await getSettings(db)
   const [kpi, pendingTransfers, matrix] = await Promise.all([
-    getDashboardKpi(db, now),
+    getDashboardKpi(db, now, settings.paymentDueDay),
     getPendingTransfers(db),
-    getPaymentMatrix(db, now, 12),
+    getPaymentMatrix(db, now, settings.paymentDueDay, 12),
   ])
 
   return (

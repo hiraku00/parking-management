@@ -29,7 +29,8 @@ export type PayableInvoice = { id: string; month: YearMonth; remaining: number }
  * 判定がずれないようにする。
  */
 export async function getPayableInvoices(db: Db, contractorId: string, now: Date): Promise<PayableInvoice[]> {
-  const unpaid = await getUnpaidInvoicesForContractor(db, contractorId, now)
+  const settingsRow = await getSettings(db)
+  const unpaid = await getUnpaidInvoicesForContractor(db, contractorId, now, settingsRow.paymentDueDay)
   return unpaid
     .filter((i) => !i.hasPendingAllocation)
     .map((i) => ({ id: i.id, month: i.month, remaining: i.remaining }))

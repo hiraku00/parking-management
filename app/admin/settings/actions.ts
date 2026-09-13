@@ -30,6 +30,7 @@ export async function updateSettingsAction(
     cardPaymentEnabled: formData.get('cardPaymentEnabled') === 'on',
     bankTransferEnabled: formData.get('bankTransferEnabled') === 'on',
     invoiceLeadMonths: formData.get('invoiceLeadMonths'),
+    paymentDueDay: formData.get('paymentDueDay'),
   })
   if (!validation.success) {
     return { error: validation.error.issues[0]?.message ?? '入力内容を確認してください' }

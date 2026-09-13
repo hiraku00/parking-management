@@ -24,6 +24,7 @@ function baseInput(overrides: Partial<SettingsInput> = {}): SettingsInput {
     cardPaymentEnabled: true,
     bankTransferEnabled: true,
     invoiceLeadMonths: 1,
+    paymentDueDay: null,
     ...overrides,
   }
 }

@@ -21,6 +21,7 @@ const DEFAULT_SETTINGS: Settings = {
   cardPaymentEnabled: true,
   bankTransferEnabled: true,
   invoiceLeadMonths: 1,
+  paymentDueDay: null,
   updatedAt: new Date(0),
 }
 

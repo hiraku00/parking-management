@@ -4,7 +4,9 @@ import { getDb, type Db } from '../db/client'
 import { invoices, payments, paymentAllocations } from '../db/schema'
 import { migrate, resetData } from '../../test/support/migrate'
 import { insertAllocation, insertContractor, insertSettings } from '../../test/support/fixtures'
+import { normalizeKana } from '../domain/names'
 import {
+  getContractorsWithSameKana,
   getDashboardKpi,
   getLatestRejectedTransfer,
   getPaymentMatrix,
@@ -37,12 +39,24 @@ describe('getDashboardKpi', () => {
     // 8月分は一部入金済み（1000円）
     await insertAllocation(db, { invoiceId: augInvoice.id, contractorId, amount: 1000, state: 'applied' })
 
-    const kpi = await getDashboardKpi(db, now)
+    const kpi = await getDashboardKpi(db, now, null)
     expect(kpi.month).toBe('2026-09')
     expect(kpi.billedAmount).toBe(3000) // 今月分のみ
     expect(kpi.collectedAmount).toBe(0) // 今月分への入金は無い
     expect(kpi.outstandingAmount).toBe(3000)
     expect(kpi.overdueContractorCount).toBe(1) // 8月分が未収のまま残っている
+  })
+
+  it('支払期日（当月）を過ぎていれば当月分の未払いも滞納者数に含める', async () => {
+    // now = 2026-09-15
+    const contractorId = await insertContractor(db, { contractStartMonth: '2026-09' })
+    await db.insert(invoices).values({ contractorId, month: '2026-09', amount: 3000, status: 'open' })
+
+    const pastDue = await getDashboardKpi(db, now, 10)
+    expect(pastDue.overdueContractorCount).toBe(1)
+
+    const notYetDue = await getDashboardKpi(db, now, 20)
+    expect(notYetDue.overdueContractorCount).toBe(0)
   })
 })
 
@@ -97,7 +111,7 @@ describe('getPaymentMatrix', () => {
     await db.insert(invoices).values({ contractorId, month: '2026-09', amount: 3000, status: 'paid' })
     await insertAllocation(db, { invoiceId: aug.id, contractorId, amount: 1500, state: 'applied' })
 
-    const matrix = await getPaymentMatrix(db, now, 3) // 2026-07, 08, 09
+    const matrix = await getPaymentMatrix(db, now, null, 3) // 2026-07, 08, 09
     expect(matrix.months).toEqual(['2026-07', '2026-08', '2026-09'])
     const row = matrix.rows.find((r) => r.contractorId === contractorId)
     expect(row?.cells['2026-07']).toBeUndefined() // 契約開始前 = 対象外
@@ -107,7 +121,7 @@ describe('getPaymentMatrix', () => {
 
   it('アーカイブ済みの契約者は行に含めない', async () => {
     await insertContractor(db, { archivedAt: new Date() })
-    const matrix = await getPaymentMatrix(db, now, 1)
+    const matrix = await getPaymentMatrix(db, now, null, 1)
     expect(matrix.rows).toHaveLength(0)
   })
 })
@@ -121,7 +135,7 @@ describe('getUnpaidInvoicesForContractor', () => {
       { contractorId, month: '2026-10', amount: 3000 },
     ])
 
-    const rows = await getUnpaidInvoicesForContractor(db, contractorId, now)
+    const rows = await getUnpaidInvoicesForContractor(db, contractorId, now, null)
     const byMonth = Object.fromEntries(rows.map((r) => [r.month, r.timing]))
     expect(byMonth['2026-08']).toBe('overdue')
     expect(byMonth['2026-09']).toBe('current')
@@ -136,8 +150,45 @@ describe('getUnpaidInvoicesForContractor', () => {
       .returning({ id: invoices.id })
     await insertAllocation(db, { invoiceId: inv.id, contractorId, state: 'pending' })
 
-    const rows = await getUnpaidInvoicesForContractor(db, contractorId, now)
+    const rows = await getUnpaidInvoicesForContractor(db, contractorId, now, null)
     expect(rows[0].hasPendingAllocation).toBe(true)
+  })
+
+  it('支払期日（当月）を過ぎていれば今月分もovedueに分類する', async () => {
+    // now = 2026-09-15
+    const contractorId = await insertContractor(db, { contractStartMonth: '2026-09' })
+    await db.insert(invoices).values({ contractorId, month: '2026-09', amount: 3000 })
+
+    const pastDue = await getUnpaidInvoicesForContractor(db, contractorId, now, 10)
+    expect(pastDue[0].timing).toBe('overdue')
+
+    const notYetDue = await getUnpaidInvoicesForContractor(db, contractorId, now, 20)
+    expect(notYetDue[0].timing).toBe('current')
+  })
+})
+
+describe('getContractorsWithSameKana', () => {
+  it('同じフリガナ照合キーを持つ、在籍中の他の契約者を返す', async () => {
+    const kana = normalizeKana('タナカ タロウ')
+    const a = await insertContractor(db, { name: '田中太郎', nameKana: 'タナカ タロウ', loginKanaKey: kana })
+    const b = await insertContractor(db, { name: '田中太朗', nameKana: 'タナカ タロウ', loginKanaKey: kana })
+
+    const result = await getContractorsWithSameKana(db, a, kana)
+    expect(result).toEqual([{ id: b, name: '田中太朗' }])
+  })
+
+  it('アーカイブ済みの契約者は含めない', async () => {
+    const kana = normalizeKana('タナカ タロウ')
+    const a = await insertContractor(db, { name: '田中太郎', nameKana: 'タナカ タロウ', loginKanaKey: kana })
+    await insertContractor(db, {
+      name: '田中太朗',
+      nameKana: 'タナカ タロウ',
+      loginKanaKey: kana,
+      archivedAt: new Date(),
+    })
+
+    const result = await getContractorsWithSameKana(db, a, kana)
+    expect(result).toEqual([])
   })
 })
 

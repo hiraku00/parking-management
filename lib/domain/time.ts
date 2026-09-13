@@ -96,6 +96,28 @@ export function formatMonthJa(ym: YearMonth): string {
   return `${year}年${MONTH_LABELS_JA[month - 1]}`
 }
 
+/**
+ * 指定した月の請求が、支払期日を過ぎているかどうかを判定する。
+ * 前月以前はいつでも滞納扱い、来月以降は常に対象外。当月分は `dueDay`
+ * （1〜28。NULLは月末）を過ぎたかどうかで判定する。
+ * 参照: docs/design/09-ux-improvements.md §9.4.11
+ */
+export function isPastDue(month: YearMonth, now: Date, dueDay: number | null): boolean {
+  const cmp = compareYearMonth(month, currentMonth(now))
+  if (cmp < 0) return true
+  if (cmp > 0) return false
+  if (dueDay === null) return false
+  const dueDate = `${month}-${String(dueDay).padStart(2, '0')}`
+  return todayJst(now) > dueDate
+}
+
+/** 指定した月の支払期日を "9月30日" の形式で表示する（dueDayがNULLなら月末）。 */
+export function formatDueDateJa(month: YearMonth, dueDay: number | null): string {
+  const [year, monthNum] = month.split('-').map(Number)
+  const day = dueDay ?? new Date(Date.UTC(year, monthNum, 0)).getUTCDate()
+  return `${monthNum}月${day}日`
+}
+
 /** JSTの日付 (Date) を "2026年9月12日" の形式で表示する。 */
 export function formatDateJa(date: Date): string {
   const jst = toJstFields(date)

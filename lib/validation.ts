@@ -113,6 +113,14 @@ export const settingsInputSchema = z.object({
   cardPaymentEnabled: z.coerce.boolean().default(true),
   bankTransferEnabled: z.coerce.boolean().default(true),
   invoiceLeadMonths: z.coerce.number().int().min(0).max(12).default(1),
+  paymentDueDay: z
+    .string()
+    .optional()
+    .transform((v) => (v && v.trim() !== '' ? Number(v) : null))
+    .refine(
+      (v) => v === null || (Number.isInteger(v) && v >= 1 && v <= 28),
+      '支払期日は1〜28の範囲で入力してください',
+    ),
 })
 
 export type SettingsInput = z.infer<typeof settingsInputSchema>

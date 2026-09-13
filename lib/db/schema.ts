@@ -40,6 +40,7 @@ export const contractors = sqliteTable(
     name: text('name').notNull(), // 表示名（例: 田中 太郎）
     nameKana: text('name_kana'), // 並び替えと振込名義の照合用（任意）
     loginKey: text('login_key').notNull(), // normalizeName(name)（NFKC、空白除去）
+    loginKanaKey: text('login_kana_key'), // normalizeKana(nameKana)。予備ログインのフリガナ照合用（任意）
     phone: text('phone').notNull(),
     phoneLast4: text('phone_last4').notNull(),
     spaceLabel: text('space_label'), // 区画（例: "A-3"）
@@ -214,9 +215,13 @@ export const settings = sqliteTable(
     cardPaymentEnabled: integer('card_payment_enabled', { mode: 'boolean' }).notNull().default(true),
     bankTransferEnabled: integer('bank_transfer_enabled', { mode: 'boolean' }).notNull().default(true),
     invoiceLeadMonths: integer('invoice_lead_months').notNull().default(1), // 何か月先の分まで請求を作るか（前払い。初期値1=翌月分まで）
+    paymentDueDay: integer('payment_due_day'), // 支払期日（1〜28）。NULLは月末
     updatedAt: updatedAt(),
   },
-  () => [check('settings_singleton_chk', sql`id = 1`)],
+  () => [
+    check('settings_singleton_chk', sql`id = 1`),
+    check('settings_payment_due_day_chk', sql`payment_due_day IS NULL OR payment_due_day BETWEEN 1 AND 28`),
+  ],
 )
 
 // ─── 監査ログ ─────────────────────────────────────────────

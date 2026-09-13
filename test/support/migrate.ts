@@ -1,7 +1,12 @@
-// migrations/0000_init.sql を、D1（vitest-pluginが用意するテスト用インスタンス）
-// へ流し込む。drizzle-kitが挿入する `--> statement-breakpoint` で分割し、
-// 1文ずつ prepare して batch で流す。
-import migrationSql from '../../migrations/0000_init.sql?raw'
+// migrations/*.sql を、D1（vitest-pluginが用意するテスト用インスタンス）へ
+// 順番に流し込む。drizzle-kitが挿入する `--> statement-breakpoint` で分割し、
+// 1ファイルごとに1文ずつ prepare して batch で流す。
+import migration0000 from '../../migrations/0000_init.sql?raw'
+import migration0001 from '../../migrations/0001_flat_dakota_north.sql?raw'
+
+// migrations/*.sql が増えたら、番号順にここへ追加する
+// （wrangler d1 migrations apply と同じ適用順を、テストでも再現するため）。
+const MIGRATIONS = [migration0000, migration0001]
 
 const TABLES_IN_FK_SAFE_DELETE_ORDER = [
   'payment_allocations',
@@ -14,8 +19,8 @@ const TABLES_IN_FK_SAFE_DELETE_ORDER = [
   'settings',
 ]
 
-function statements(): string[] {
-  return migrationSql
+function statements(sql: string): string[] {
+  return sql
     .split('--> statement-breakpoint')
     .map((s) => s.trim())
     .filter(Boolean)
@@ -25,8 +30,10 @@ function statements(): string[] {
  *  分離されるが、同じファイル内の複数の it() の間では共有されるため、
  *  スキーマの作成は1回だけにし、行の削除は resetData() で行う。 */
 export async function migrate(db: D1Database): Promise<void> {
-  const stmts = statements()
-  await db.batch(stmts.map((s) => db.prepare(s)) as [D1PreparedStatement, ...D1PreparedStatement[]])
+  for (const sql of MIGRATIONS) {
+    const stmts = statements(sql)
+    await db.batch(stmts.map((s) => db.prepare(s)) as [D1PreparedStatement, ...D1PreparedStatement[]])
+  }
 }
 
 /** 同じファイル内の各テストの前に呼び、前のテストのデータを空にする。

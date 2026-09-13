@@ -5,7 +5,8 @@ import { getDb } from '@/lib/db/client'
 import { contractors, invoices, paymentAllocations } from '@/lib/db/schema'
 import { formatYen } from '@/lib/domain/money'
 import { formatDateJa, formatMonthJa, todayJst, type YearMonth } from '@/lib/domain/time'
-import { getUnpaidInvoicesForContractor } from '@/lib/services/queries'
+import { getContractorsWithSameKana, getUnpaidInvoicesForContractor } from '@/lib/services/queries'
+import { getSettings } from '@/lib/services/settings'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
@@ -52,9 +53,14 @@ export default async function ContractorDetailPage({ params }: { params: Promise
     appliedByInvoice.set(a.invoiceId, (appliedByInvoice.get(a.invoiceId) ?? 0) + a.amount)
   }
 
-  const payableInvoices = (await getUnpaidInvoicesForContractor(db, id, now))
+  const settings = await getSettings(db)
+  const payableInvoices = (await getUnpaidInvoicesForContractor(db, id, now, settings.paymentDueDay))
     .filter((i) => !i.hasPendingAllocation)
     .map((i) => ({ id: i.id, label: formatMonthJa(i.month), remaining: i.remaining }))
+
+  const sameKanaContractors = contractor.loginKanaKey
+    ? await getContractorsWithSameKana(db, id, contractor.loginKanaKey)
+    : []
 
   const boundUpdateAction = updateContractorAction.bind(null, id)
 
@@ -64,6 +70,14 @@ export default async function ContractorDetailPage({ params }: { params: Promise
         <h1 className="text-2xl font-semibold text-slate-900">{contractor.name}</h1>
         {contractor.archivedAt && <Badge variant="secondary">契約終了済み</Badge>}
       </div>
+
+      {sameKanaContractors.length > 0 && (
+        <div className="rounded-md border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">
+          同じフリガナの契約者がいます（
+          {sameKanaContractors.map((c) => c.name).join('、')}
+          ）。フリガナでの予備ログインは、同じ読みの人が複数いると失敗するため、必要であれば区別できる表記にしてください。
+        </div>
+      )}
 
       {!contractor.archivedAt && (
         <Card>
