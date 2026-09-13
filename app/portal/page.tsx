@@ -157,7 +157,7 @@ export default async function PortalHomePage() {
       <div className="space-y-3">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-bold text-slate-900">お支払いの履歴</h2>
-          <Link href="/portal/history" className="text-base text-primary hover:underline">
+          <Link href="/portal/history" className="min-h-12 text-base text-primary hover:underline">
             すべて見る ›
           </Link>
         </div>

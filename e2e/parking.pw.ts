@@ -172,6 +172,33 @@ test.describe('契約者: QRログイン→振込報告→承認→領収書', (
     await expect(page).toHaveURL(/\/portal$/)
     const portalResults = await new AxeBuilder({ page }).analyze()
     expect(portalResults.violations).toEqual([])
+
+    // 支払い（ステップ1、選択肢が複数あれば表示される）
+    await page.getByRole('link', { name: 'お支払いへ進む' }).click()
+    const payResults = await new AxeBuilder({ page }).analyze()
+    expect(payResults.violations).toEqual([])
+    if (new URL(page.url()).pathname === '/portal/pay') {
+      await page.getByRole('button', { name: '次へ' }).click()
+    }
+
+    // 支払い方法（ステップ2）
+    await expect(page).toHaveURL(/\/portal\/pay\/method/)
+    const methodResults = await new AxeBuilder({ page }).analyze()
+    expect(methodResults.violations).toEqual([])
+    await page.getByLabel('銀行振込', { exact: false }).check()
+    await page.getByRole('button', { name: 'お支払いへ' }).click()
+
+    // 振込
+    await expect(page).toHaveURL(/\/portal\/pay\/transfer/)
+    const transferResults = await new AxeBuilder({ page }).analyze()
+    expect(transferResults.violations).toEqual([])
+    await page.getByLabel('振込名義').fill(c.name)
+    await page.getByRole('button', { name: '振り込みました' }).click()
+
+    // 完了（振込報告）
+    await expect(page).toHaveURL(/\/portal\/pay\/transfer\/done\//)
+    const doneResults = await new AxeBuilder({ page }).analyze()
+    expect(doneResults.violations).toEqual([])
   })
 })
 
