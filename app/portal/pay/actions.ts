@@ -76,5 +76,5 @@ export async function reportTransferAction(
     now: new Date(),
   })
   if (!result.ok) return { error: TRANSFER_ERROR_MESSAGE[result.error] }
-  redirect('/portal?transfer_reported=1')
+  redirect(`/portal/pay/transfer/done/${result.paymentId}`)
 }

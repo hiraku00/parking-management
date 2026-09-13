@@ -77,6 +77,9 @@ export function ContractorForm({
         </Field>
         <Field label="フリガナ">
           <Input name="nameKana" defaultValue={values.nameKana} placeholder="例: タナカ タロウ" />
+          {!values.nameKana && (
+            <p className="text-xs text-muted-foreground">振込の照合に使います。入力をおすすめします。</p>
+          )}
         </Field>
         <Field label="電話番号" required>
           <Input name="phone" defaultValue={values.phone} required placeholder="例: 090-1234-5678" />

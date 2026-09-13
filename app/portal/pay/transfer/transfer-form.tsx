@@ -46,8 +46,14 @@ export function TransferForm({
           name="payerName"
           defaultValue={defaultPayerName}
           required
+          placeholder={defaultPayerName ? undefined : '例: タナカ タロウ'}
           className="h-14 text-lg"
         />
+        {!defaultPayerName && (
+          <p className="text-base text-muted-foreground">
+            通帳や明細に出る名前を、カタカナで入力してください。
+          </p>
+        )}
       </div>
       <div className="space-y-2">
         <Label htmlFor="paidOn" className="text-base">

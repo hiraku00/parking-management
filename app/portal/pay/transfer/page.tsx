@@ -7,6 +7,7 @@ import { getSettings } from '@/lib/services/settings'
 import { todayJst } from '@/lib/domain/time'
 import { formatYen } from '@/lib/domain/money'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { CopyButton } from '@/components/portal/copy-button'
 import { TransferForm } from './transfer-form'
 
 export default async function TransferPage({ searchParams }: { searchParams: Promise<{ count?: string }> }) {
@@ -34,15 +35,27 @@ export default async function TransferPage({ searchParams }: { searchParams: Pro
         <CardHeader>
           <CardTitle>振込先</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-1 text-base text-slate-900">
-          <p>
-            {settings.bankName} {settings.bankBranch}
-          </p>
-          <p>
-            {settings.bankAccountType} {settings.bankAccountNumber}
-          </p>
-          <p>{settings.bankAccountHolderKana}</p>
-          <p className="pt-3 text-2xl font-bold">お振込金額 {formatYen(amount)}</p>
+        <CardContent className="space-y-3 text-base text-slate-900">
+          <div className="flex items-center justify-between gap-3">
+            <p>
+              {settings.bankName} {settings.bankBranch}
+            </p>
+            <CopyButton value={`${settings.bankName ?? ''} ${settings.bankBranch ?? ''}`.trim()} />
+          </div>
+          <div className="flex items-center justify-between gap-3">
+            <p>
+              {settings.bankAccountType} {settings.bankAccountNumber}
+            </p>
+            <CopyButton value={settings.bankAccountNumber ?? ''} />
+          </div>
+          <div className="flex items-center justify-between gap-3">
+            <p>{settings.bankAccountHolderKana}</p>
+            <CopyButton value={settings.bankAccountHolderKana ?? ''} />
+          </div>
+          <div className="flex items-center justify-between gap-3 border-t pt-3">
+            <p className="text-2xl font-bold">お振込金額 {formatYen(amount)}</p>
+            <CopyButton value={String(amount)} />
+          </div>
         </CardContent>
       </Card>
 
