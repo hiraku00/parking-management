@@ -1,4 +1,4 @@
-import { and, desc, eq, gte, inArray, isNull, lt, lte } from 'drizzle-orm'
+import { and, desc, eq, gte, inArray, isNull, lt, lte, ne } from 'drizzle-orm'
 import type { Db } from '../db/client'
 import {
   auditLogs,
@@ -9,7 +9,14 @@ import {
   receipts,
   type IssuerSnapshot,
 } from '../db/schema'
-import { addMonths, compareYearMonth, currentMonth, monthsBetween, type YearMonth } from '../domain/time'
+import {
+  addMonths,
+  compareYearMonth,
+  currentMonth,
+  isPastDue,
+  monthsBetween,
+  type YearMonth,
+} from '../domain/time'
 
 /** 画面表示用の読み取り専用クエリ（書き込みは lib/services/* の各サービスで行う）。
  *  参照: docs/design/07-screens.md §7.4 */
@@ -22,8 +29,13 @@ export type DashboardKpi = {
   overdueContractorCount: number
 }
 
-/** 今月（JST）の請求額・入金済み額・未収額と、滞納している契約者数を返す。 */
-export async function getDashboardKpi(db: Db, now: Date): Promise<DashboardKpi> {
+/** 今月（JST）の請求額・入金済み額・未収額と、滞納している契約者数を返す。
+ *  `paymentDueDay` は settings.paymentDueDay（1〜28、NULLは月末）。 */
+export async function getDashboardKpi(
+  db: Db,
+  now: Date,
+  paymentDueDay: number | null,
+): Promise<DashboardKpi> {
   const month = currentMonth(now)
 
   const currentMonthInvoices = await db
@@ -55,10 +67,18 @@ export async function getDashboardKpi(db: Db, now: Date): Promise<DashboardKpi> 
   const collectedAmount =
     paidThisMonth.reduce((sum, i) => sum + i.amount, 0) + appliedForOpen.reduce((sum, a) => sum + a.amount, 0)
 
+  // 前月以前の未払いは常に滞納。当月分は期日を過ぎていれば滞納に含める。
   const overdueInvoices = await db
     .selectDistinct({ contractorId: invoices.contractorId })
     .from(invoices)
-    .where(and(eq(invoices.status, 'open'), lte(invoices.month, addMonths(month, -1))))
+    .where(
+      and(
+        eq(invoices.status, 'open'),
+        isPastDue(month, now, paymentDueDay)
+          ? lte(invoices.month, month)
+          : lte(invoices.month, addMonths(month, -1)),
+      ),
+    )
 
   return {
     month,
@@ -67,6 +87,25 @@ export async function getDashboardKpi(db: Db, now: Date): Promise<DashboardKpi> 
     outstandingAmount: billedAmount - collectedAmount,
     overdueContractorCount: overdueInvoices.length,
   }
+}
+
+/** 同じフリガナ照合キーを持つ、在籍中の他の契約者（予備ログインの取り違え防止の警告用）。
+ *  参照: docs/design/09-ux-improvements.md §9.4.10 */
+export async function getContractorsWithSameKana(
+  db: Db,
+  contractorId: string,
+  loginKanaKey: string,
+): Promise<{ id: string; name: string }[]> {
+  return db
+    .select({ id: contractors.id, name: contractors.name })
+    .from(contractors)
+    .where(
+      and(
+        eq(contractors.loginKanaKey, loginKanaKey),
+        ne(contractors.id, contractorId),
+        isNull(contractors.archivedAt),
+      ),
+    )
 }
 
 export type PendingTransfer = {
@@ -114,7 +153,12 @@ export type PaymentMatrix = {
  *  呼び出し側で先に `syncInvoices(db, { contractorIds: 'all', now })` を
  *  呼んでおく前提（そうしないと、まだ作られていない今月分の請求が
  *  「対象外」に見えてしまう）。 */
-export async function getPaymentMatrix(db: Db, now: Date, monthsBack = 12): Promise<PaymentMatrix> {
+export async function getPaymentMatrix(
+  db: Db,
+  now: Date,
+  paymentDueDay: number | null,
+  monthsBack = 12,
+): Promise<PaymentMatrix> {
   const month = currentMonth(now)
   const months = monthsBetween(addMonths(month, -(monthsBack - 1)), month)
 
@@ -170,7 +214,8 @@ export async function getPaymentMatrix(db: Db, now: Date, monthsBack = 12): Prom
     cells[invoice.month as YearMonth] = classifyCell(invoice, {
       appliedAmount: appliedByInvoice.get(invoice.id) ?? 0,
       hasPending: pendingInvoiceIds.has(invoice.id),
-      currentMonth: month,
+      now,
+      paymentDueDay,
     })
     cellsByContractor.set(invoice.contractorId, cells)
   }
@@ -185,13 +230,13 @@ export async function getPaymentMatrix(db: Db, now: Date, monthsBack = 12): Prom
 
 function classifyCell(
   invoice: { status: 'open' | 'paid' | 'void'; month: string },
-  ctx: { appliedAmount: number; hasPending: boolean; currentMonth: YearMonth },
+  ctx: { appliedAmount: number; hasPending: boolean; now: Date; paymentDueDay: number | null },
 ): MatrixCellStatus {
   if (invoice.status === 'void') return 'void'
   if (invoice.status === 'paid') return 'paid'
   if (ctx.hasPending) return 'pending'
   if (ctx.appliedAmount > 0) return 'partial'
-  if (compareYearMonth(invoice.month as YearMonth, ctx.currentMonth) < 0) return 'overdue'
+  if (isPastDue(invoice.month as YearMonth, ctx.now, ctx.paymentDueDay)) return 'overdue'
   return 'unpaid'
 }
 
@@ -208,11 +253,13 @@ export type PortalUnpaidInvoice = {
   hasPendingAllocation: boolean
 }
 
-/** 契約者本人の未払い請求（open）を、古い月から順に返す。 */
+/** 契約者本人の未払い請求（open）を、古い月から順に返す。
+ *  `paymentDueDay` は settings.paymentDueDay（1〜28、NULLは月末）。 */
 export async function getUnpaidInvoicesForContractor(
   db: Db,
   contractorId: string,
   now: Date,
+  paymentDueDay: number | null,
 ): Promise<PortalUnpaidInvoice[]> {
   const month = currentMonth(now)
   const rows = await db
@@ -247,7 +294,8 @@ export async function getUnpaidInvoicesForContractor(
       month: r.month as YearMonth,
       amount: r.amount,
       remaining: r.amount - (appliedByInvoice.get(r.id) ?? 0),
-      timing: cmp < 0 ? 'overdue' : cmp === 0 ? 'current' : 'future',
+      timing:
+        cmp > 0 ? 'future' : isPastDue(r.month as YearMonth, now, paymentDueDay) ? 'overdue' : 'current',
       hasPendingAllocation: pendingInvoiceIds.has(r.id),
     }
   })

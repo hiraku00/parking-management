@@ -136,6 +136,16 @@ export function SettingsForm({ initialData }: { initialData: Settings }) {
               defaultValue={initialData.invoiceLeadMonths}
             />
           </Field>
+          <Field label="支払期日（日）">
+            <Input
+              name="paymentDueDay"
+              type="number"
+              min={1}
+              max={28}
+              placeholder="未設定（月末）"
+              defaultValue={initialData.paymentDueDay ?? ''}
+            />
+          </Field>
         </CardContent>
       </Card>
 

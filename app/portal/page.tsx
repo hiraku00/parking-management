@@ -10,12 +10,14 @@ import {
 } from '@/lib/services/queries'
 import { deriveHomeState } from '@/lib/domain/portal-home'
 import { resumeCardCheckoutAction, cancelCardCheckoutAction } from './actions'
-import { formatMonthJa, type YearMonth } from '@/lib/domain/time'
+import { getSettings } from '@/lib/services/settings'
+import { currentMonth, formatDueDateJa, formatMonthJa, type YearMonth } from '@/lib/domain/time'
 import { formatYen } from '@/lib/domain/money'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { StatusBadge } from '@/components/portal/status-badge'
+import { AddToHomeBanner } from '@/components/portal/add-to-home-banner'
 
 const METHOD_LABEL: Record<string, string> = {
   card: 'カード・スマホ決済',
@@ -33,8 +35,9 @@ export default async function PortalHomePage() {
   const contractor = await requireContractor(db)
   const now = new Date()
 
+  const settings = await getSettings(db)
   const [unpaidInvoices, pendingCardPayment, latestRejected, paymentHistory] = await Promise.all([
-    getUnpaidInvoicesForContractor(db, contractor.id, now),
+    getUnpaidInvoicesForContractor(db, contractor.id, now, settings.paymentDueDay),
     getPendingCardPayment(db, contractor.id),
     getLatestRejectedTransfer(db, contractor.id),
     getPaymentHistoryForContractor(db, contractor.id),
@@ -61,6 +64,8 @@ export default async function PortalHomePage() {
 
   return (
     <div className="space-y-6">
+      <AddToHomeBanner />
+
       <Card>
         <CardContent className="space-y-1 p-4">
           <p className="text-lg font-bold text-slate-900">
@@ -114,6 +119,11 @@ export default async function PortalHomePage() {
               ) : null}
               <p className="text-lg font-bold text-slate-900">{monthsLabel(state.months)}分</p>
               <p className="text-3xl font-bold text-slate-900">{formatYen(state.amount)}</p>
+              {!state.overdue && (
+                <p className="text-base text-muted-foreground">
+                  {formatDueDateJa(currentMonth(now), settings.paymentDueDay)}までにお支払いください
+                </p>
+              )}
               <Button asChild size="lg" className="h-14 w-full text-lg font-bold">
                 <Link href="/portal/pay">お支払いへ進む</Link>
               </Button>

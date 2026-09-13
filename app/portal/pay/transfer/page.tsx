@@ -18,9 +18,9 @@ export default async function TransferPage({ searchParams }: { searchParams: Pro
   const contractor = await requireContractor(db)
   const settings = await getSettings(db)
 
-  const unpaid = (await getUnpaidInvoicesForContractor(db, contractor.id, new Date())).filter(
-    (i) => !i.hasPendingAllocation,
-  )
+  const unpaid = (
+    await getUnpaidInvoicesForContractor(db, contractor.id, new Date(), settings.paymentDueDay)
+  ).filter((i) => !i.hasPendingAllocation)
   const targets = unpaid.slice(0, count)
   if (!Number.isInteger(count) || count < 1 || targets.length < count || !settings.bankTransferEnabled) {
     redirect('/portal/pay')

@@ -4,6 +4,13 @@ import './globals.css'
 export const metadata: Metadata = {
   title: '駐車場管理システム',
   description: '月極駐車場の契約・請求・入金管理',
+  manifest: '/manifest.webmanifest',
+  // apple-mobile-web-app-capable は付けない（appleWebAppは使わない）。
+  // ホーム画面に追加してもSafariで開くようにし、QRログインのCookieが
+  // 引き継がれるようにするため。参照: docs/design/09-ux-improvements.md §9.4.9
+  icons: {
+    apple: '/icons/apple-touch-icon.png',
+  },
 }
 
 // next/font/google はvinextでは部分対応のため使わない

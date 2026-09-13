@@ -1,7 +1,7 @@
 import { and, eq, isNull } from 'drizzle-orm'
 import type { Db } from '../db/client'
 import { contractors } from '../db/schema'
-import { normalizeName } from '../domain/names'
+import { normalizeKana, normalizeName } from '../domain/names'
 import type { ContractorInput } from '../validation'
 import { type Actor, auditLogInsert } from './audit'
 import { applyFeeChange, syncInvoices } from './invoices'
@@ -30,6 +30,7 @@ export async function createContractor(
 
   const id = crypto.randomUUID()
   const phoneLast4 = input.phone.replace(/\D/g, '').slice(-4)
+  const loginKanaKey = input.nameKana ? normalizeKana(input.nameKana) : null
 
   try {
     await db.batch([
@@ -38,6 +39,7 @@ export async function createContractor(
         name: input.name,
         nameKana: input.nameKana,
         loginKey,
+        loginKanaKey,
         phone: input.phone,
         phoneLast4,
         spaceLabel: input.spaceLabel,
@@ -91,6 +93,7 @@ export async function updateContractor(
   }
 
   const phoneLast4 = input.phone.replace(/\D/g, '').slice(-4)
+  const loginKanaKey = input.nameKana ? normalizeKana(input.nameKana) : null
   try {
     await db.batch([
       db
@@ -99,6 +102,7 @@ export async function updateContractor(
           name: input.name,
           nameKana: input.nameKana,
           loginKey,
+          loginKanaKey,
           phone: input.phone,
           phoneLast4,
           spaceLabel: input.spaceLabel,

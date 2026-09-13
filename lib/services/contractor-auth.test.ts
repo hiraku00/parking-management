@@ -6,6 +6,7 @@ import { contractors } from '../db/schema'
 import { migrate, resetData } from '../../test/support/migrate'
 import { insertContractor } from '../../test/support/fixtures'
 import { hashLoginToken } from '../auth/login-token'
+import { normalizeKana } from '../domain/names'
 import {
   attemptContractorLogin,
   attemptQrLogin,
@@ -55,6 +56,42 @@ describe('attemptContractorLogin', () => {
   it('電話番号が違う場合も invalid（存在しない氏名と同じ文言にするため）', async () => {
     await insertContractor(db, { name: '田中太郎', phoneLast4: '1234' })
     const result = await attemptContractorLogin(db, { name: '田中太郎', phoneLast4: '9999', now: new Date() })
+    expect(result).toEqual({ ok: false, reason: 'invalid' })
+  })
+
+  it('氏名で見つからなければフリガナでログインできる', async () => {
+    const id = await insertContractor(db, {
+      name: '田中太郎',
+      nameKana: 'タナカ タロウ',
+      loginKanaKey: normalizeKana('タナカ タロウ'),
+      phoneLast4: '1234',
+    })
+    const result = await attemptContractorLogin(db, {
+      name: 'たなか たろう',
+      phoneLast4: '1234',
+      now: new Date(),
+    })
+    expect(result).toEqual({ ok: true, contractorId: id, sessionVersion: 1 })
+  })
+
+  it('フリガナが複数人一致した場合は取り違えを防ぐため invalid', async () => {
+    await insertContractor(db, {
+      name: '田中太郎',
+      nameKana: 'タナカ タロウ',
+      loginKanaKey: normalizeKana('タナカ タロウ'),
+      phoneLast4: '1234',
+    })
+    await insertContractor(db, {
+      name: '田中太朗',
+      nameKana: 'タナカ タロウ',
+      loginKanaKey: normalizeKana('タナカ タロウ'),
+      phoneLast4: '5678',
+    })
+    const result = await attemptContractorLogin(db, {
+      name: 'タナカタロウ',
+      phoneLast4: '1234',
+      now: new Date(),
+    })
     expect(result).toEqual({ ok: false, reason: 'invalid' })
   })
 

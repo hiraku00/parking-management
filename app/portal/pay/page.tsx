@@ -4,6 +4,7 @@ import { appEnv } from '@/lib/env'
 import { getDb } from '@/lib/db/client'
 import { requireContractor } from '@/lib/auth/contractor-session'
 import { getUnpaidInvoicesForContractor } from '@/lib/services/queries'
+import { getSettings } from '@/lib/services/settings'
 import { formatMonthJa } from '@/lib/domain/time'
 import { formatYen } from '@/lib/domain/money'
 import { Button } from '@/components/ui/button'
@@ -17,10 +18,11 @@ export default async function PayPage({ searchParams }: { searchParams: Promise<
   const { count: countParam } = await searchParams
   const db = getDb(appEnv().DB)
   const contractor = await requireContractor(db)
+  const settings = await getSettings(db)
 
-  const unpaid = (await getUnpaidInvoicesForContractor(db, contractor.id, new Date())).filter(
-    (i) => !i.hasPendingAllocation,
-  )
+  const unpaid = (
+    await getUnpaidInvoicesForContractor(db, contractor.id, new Date(), settings.paymentDueDay)
+  ).filter((i) => !i.hasPendingAllocation)
 
   if (unpaid.length === 0) {
     return (

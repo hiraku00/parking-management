@@ -1,7 +1,7 @@
 import { and, eq, isNull } from 'drizzle-orm'
 import type { Db } from '../db/client'
 import { contractors } from '../db/schema'
-import { normalizeName } from '../domain/names'
+import { normalizeKana, normalizeName } from '../domain/names'
 import { generateLoginToken, hashLoginToken } from '../auth/login-token'
 import { type Actor, auditLogInsert } from './audit'
 
@@ -22,10 +22,20 @@ export async function attemptContractorLogin(
   params: { name: string; phoneLast4: string; now: Date },
 ): Promise<ContractorLoginResult> {
   const loginKey = normalizeName(params.name)
-  const contractor = await db.query.contractors.findFirst({
+  let contractor = await db.query.contractors.findFirst({
     where: and(eq(contractors.loginKey, loginKey), isNull(contractors.archivedAt)),
   })
-  if (!contractor) return { ok: false, reason: 'invalid' }
+
+  if (!contractor) {
+    // login_key（氏名の完全一致）で見つからなければ、フリガナでも探す。
+    // 同じ読みの人を取り違えないよう、複数人が一致した場合は失敗扱いにする。
+    const loginKanaKey = normalizeKana(params.name)
+    const kanaMatches = await db.query.contractors.findMany({
+      where: and(eq(contractors.loginKanaKey, loginKanaKey), isNull(contractors.archivedAt)),
+    })
+    if (kanaMatches.length !== 1) return { ok: false, reason: 'invalid' }
+    contractor = kanaMatches[0]
+  }
 
   if (contractor.lockedUntil && contractor.lockedUntil.getTime() > params.now.getTime()) {
     return { ok: false, reason: 'locked' }

@@ -4,7 +4,9 @@ import {
   compareYearMonth,
   currentMonth,
   formatDateJa,
+  formatDueDateJa,
   formatMonthJa,
+  isPastDue,
   isValidIsoDate,
   isValidYearMonth,
   monthsBetween,
@@ -125,5 +127,40 @@ describe('formatDateJa', () => {
     expect(formatDateJa(new Date('2026-01-01T00:00:00.000Z'))).toBe('2026年1月1日')
     // UTC前日15:00はJST翌日0:00
     expect(formatDateJa(new Date('2025-12-31T15:00:00.000Z'))).toBe('2026年1月1日')
+  })
+})
+
+describe('formatDueDateJa', () => {
+  it('dueDayが指定されていればその日を表示する', () => {
+    expect(formatDueDateJa('2026-09', 5)).toBe('9月5日')
+  })
+
+  it('dueDayがNULLなら月末日を表示する（うるう年を含む）', () => {
+    expect(formatDueDateJa('2026-09', null)).toBe('9月30日')
+    expect(formatDueDateJa('2026-02', null)).toBe('2月28日')
+    expect(formatDueDateJa('2024-02', null)).toBe('2月29日') // うるう年
+  })
+})
+
+describe('isPastDue', () => {
+  const now = new Date('2026-09-15T00:00:00.000Z') // JST 2026-09-15
+
+  it('前月以前はdueDayに関わらず常に滞納扱い', () => {
+    expect(isPastDue('2026-08', now, null)).toBe(true)
+    expect(isPastDue('2026-08', now, 28)).toBe(true)
+  })
+
+  it('来月以降はdueDayに関わらず滞納にならない', () => {
+    expect(isPastDue('2026-10', now, 1)).toBe(false)
+  })
+
+  it('dueDayがNULLなら当月中は滞納にならない（月末扱い）', () => {
+    expect(isPastDue('2026-09', now, null)).toBe(false)
+  })
+
+  it('当月分はdueDayを過ぎていれば滞納、過ぎていなければ滞納にならない', () => {
+    expect(isPastDue('2026-09', now, 10)).toBe(true) // 期日9/10を過ぎている
+    expect(isPastDue('2026-09', now, 15)).toBe(false) // 当日は期日当日でまだ滞納にしない
+    expect(isPastDue('2026-09', now, 20)).toBe(false) // 期日はまだ先
   })
 })

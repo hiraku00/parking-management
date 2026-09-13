@@ -24,9 +24,9 @@ export default async function PayMethodPage({ searchParams }: { searchParams: Pr
     redirect('/portal/pay')
   }
 
-  const unpaid = (await getUnpaidInvoicesForContractor(db, contractor.id, new Date())).filter(
-    (i) => !i.hasPendingAllocation,
-  )
+  const unpaid = (
+    await getUnpaidInvoicesForContractor(db, contractor.id, new Date(), settings.paymentDueDay)
+  ).filter((i) => !i.hasPendingAllocation)
   if (!Number.isInteger(count) || count < 1 || count > unpaid.length) {
     redirect('/portal/pay')
   }
