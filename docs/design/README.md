@@ -12,16 +12,17 @@ Cloudflare上で一から作り直す、月極駐車場の契約・請求・入�
 
 ## ドキュメント
 
-| #   | ファイル                                               | 内容                                                             |
-| --- | ------------------------------------------------------ | ---------------------------------------------------------------- |
-| 1   | [01-requirements.md](01-requirements.md)               | 背景、利用者、機能要件、非機能要件、対象外                       |
-| 2   | [02-review-findings.md](02-review-findings.md)         | 旧実装のレビュー結果（不具合・設計上の問題）と、v2での対応       |
-| 3   | [03-architecture.md](03-architecture.md)               | 技術スタック、Cloudflare構成、ディレクトリ構成、リクエストの流れ |
-| 4   | [04-data-model.md](04-data-model.md)                   | D1スキーマ（Drizzle定義）、不変条件、状態遷移                    |
-| 5   | [05-auth-security.md](05-auth-security.md)             | オーナー／契約者の認証、認可、CSRF、レート制限、ヘッダー         |
-| 6   | [06-billing-payments.md](06-billing-payments.md)       | 請求の生成、カード・振込・現金の各フロー、Stripe連携、領収書     |
-| 7   | [07-screens.md](07-screens.md)                         | 画面とルートの一覧、各画面の仕様、UXの方針                       |
-| 8   | [08-implementation-plan.md](08-implementation-plan.md) | 実装フェーズ、タスク、完了条件、テスト、CI/CD、リリース手順      |
+| #   | ファイル                                               | 内容                                                                   |
+| --- | ------------------------------------------------------ | ---------------------------------------------------------------------- |
+| 1   | [01-requirements.md](01-requirements.md)               | 背景、利用者、機能要件、非機能要件、対象外                             |
+| 2   | [02-review-findings.md](02-review-findings.md)         | 旧実装のレビュー結果（不具合・設計上の問題）と、v2での対応             |
+| 3   | [03-architecture.md](03-architecture.md)               | 技術スタック、Cloudflare構成、ディレクトリ構成、リクエストの流れ       |
+| 4   | [04-data-model.md](04-data-model.md)                   | D1スキーマ（Drizzle定義）、不変条件、状態遷移                          |
+| 5   | [05-auth-security.md](05-auth-security.md)             | オーナー／契約者の認証、認可、CSRF、レート制限、ヘッダー               |
+| 6   | [06-billing-payments.md](06-billing-payments.md)       | 請求の生成、カード・振込・現金の各フロー、Stripe連携、領収書           |
+| 7   | [07-screens.md](07-screens.md)                         | 画面とルートの一覧、各画面の仕様、UXの方針                             |
+| 8   | [08-implementation-plan.md](08-implementation-plan.md) | 実装フェーズ、タスク、完了条件、テスト、CI/CD、リリース手順            |
+| 9   | [09-ux-improvements.md](09-ux-improvements.md)         | 実装後の見直しで見つかったUXの問題と、改善の設計（契約者のスマホ体験） |
 
 ## 主要な設計判断
 

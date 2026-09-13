@@ -25,6 +25,7 @@
 | 6   | [06-billing-payments.md](docs/design/06-billing-payments.md)       | 請求生成、決済フロー、Stripe連携、領収書       |
 | 7   | [07-screens.md](docs/design/07-screens.md)                         | 画面・ルート一覧とUX方針                       |
 | 8   | [08-implementation-plan.md](docs/design/08-implementation-plan.md) | 実装フェーズ、テスト計画、CI/CD、リリース手順  |
+| 9   | [09-ux-improvements.md](docs/design/09-ux-improvements.md)         | UX改善計画（契約者のスマホ体験）               |
 
 ## 技術スタック（v2）
 
