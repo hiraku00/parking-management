@@ -77,6 +77,17 @@ test.describe('オーナー: 契約者登録と請求', () => {
     expect(loginUrl).toMatch(/\/l\//)
     await expect(page.locator('svg, img').first()).toBeVisible()
   })
+
+  test('スマホ幅（375px）でヘッダーが横にはみ出さない', async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 812 })
+    await page.goto('/admin')
+
+    const scrollWidth = await page.evaluate(() => document.documentElement.scrollWidth)
+    expect(scrollWidth).toBeLessThanOrEqual(375)
+
+    await expect(page.getByRole('link', { name: '契約者一覧' })).toBeVisible()
+    await expect(page.getByRole('link', { name: /^入金/ })).toBeVisible()
+  })
 })
 
 test.describe('契約者: QRログイン→振込報告→承認→領収書', () => {
