@@ -11,7 +11,7 @@ function SubmitButton() {
   const { pending } = useFormStatus()
   return (
     <Button type="submit" size="lg" disabled={pending} className="h-14 w-full text-lg font-bold">
-      {pending ? '送信中...' : '振込を報告する'}
+      {pending ? '送信中...' : '振り込みました'}
     </Button>
   )
 }

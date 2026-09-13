@@ -253,6 +253,16 @@ export async function getUnpaidInvoicesForContractor(
   })
 }
 
+/** 契約者本人の直近の支払い方法（card/bank_transfer等）。無ければnull。
+ *  支払い方法選択画面の初期選択に使う。参照: docs/design/09-ux-improvements.md §9.4.3 */
+export async function getLastUsedPaymentMethod(db: Db, contractorId: string): Promise<string | null> {
+  const payment = await db.query.payments.findFirst({
+    where: and(eq(payments.contractorId, contractorId), eq(payments.status, 'succeeded')),
+    orderBy: desc(payments.succeededAt),
+  })
+  return payment?.method ?? null
+}
+
 export type PendingCardPayment = { paymentId: string; months: YearMonth[]; amount: number }
 
 /** 契約者本人が手続き中のカード決済（Checkoutの途中）を1件返す。無ければnull。 */
