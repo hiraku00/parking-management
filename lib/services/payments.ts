@@ -447,6 +447,74 @@ export async function rejectTransfer(
   return { ok: true }
 }
 
+export type ResumeCardCheckoutResult =
+  | { kind: 'redirect'; url: string }
+  | { kind: 'completed'; paymentId: string }
+  | { kind: 'expired' }
+  | { kind: 'not_found' }
+
+/**
+ * ホームの「お支払いを続ける」から呼ぶ。Checkout Sessionの現状を取得し直し、
+ * まだ開いていればそのURLへ、既に支払い済みなら確定処理をして完了扱いに、
+ * 期限切れなら配分を解放して再び支払える状態に戻す。参照:
+ * docs/design/09-ux-improvements.md §9.4.6
+ */
+export async function resumeCardCheckout(
+  db: Db,
+  params: { paymentId: string; contractorId: string; now: Date; stripeClient?: Pick<Stripe, 'checkout'> },
+): Promise<ResumeCardCheckoutResult> {
+  const payment = await db.query.payments.findFirst({ where: eq(payments.id, params.paymentId) })
+  if (
+    !payment ||
+    payment.contractorId !== params.contractorId ||
+    payment.method !== 'card' ||
+    payment.status !== 'pending' ||
+    !payment.stripeCheckoutSessionId
+  ) {
+    return { kind: 'not_found' }
+  }
+
+  const stripe = params.stripeClient ?? getStripe()
+  const session = await stripe.checkout.sessions.retrieve(payment.stripeCheckoutSessionId)
+
+  if (session.status === 'open') {
+    if (!session.url) return { kind: 'not_found' }
+    return { kind: 'redirect', url: session.url }
+  }
+  if (session.status === 'complete') {
+    await fulfillCheckout(db, session, params.now)
+    return { kind: 'completed', paymentId: params.paymentId }
+  }
+  await releaseAllocations(db, { paymentId: params.paymentId, status: 'canceled', now: params.now })
+  return { kind: 'expired' }
+}
+
+export type CancelCardCheckoutResult = { ok: true } | { ok: false; error: 'not_found' | 'not_pending' }
+
+/**
+ * ホームの「やめる」、および完了画面の `canceled=1` から呼ぶ。Stripe側の
+ * Sessionを期限切れにしてから配分を解放する（既に期限切れ・完了済みの場合は無視）。
+ */
+export async function cancelCardCheckout(
+  db: Db,
+  params: { paymentId: string; contractorId: string; now: Date; stripeClient?: Pick<Stripe, 'checkout'> },
+): Promise<CancelCardCheckoutResult> {
+  const payment = await db.query.payments.findFirst({ where: eq(payments.id, params.paymentId) })
+  if (!payment || payment.contractorId !== params.contractorId) return { ok: false, error: 'not_found' }
+  if (payment.method !== 'card' || payment.status !== 'pending') return { ok: false, error: 'not_pending' }
+
+  if (payment.stripeCheckoutSessionId) {
+    const stripe = params.stripeClient ?? getStripe()
+    try {
+      await stripe.checkout.sessions.expire(payment.stripeCheckoutSessionId)
+    } catch {
+      // 既に期限切れ・完了済みの場合は無視する
+    }
+  }
+  await releaseAllocations(db, { paymentId: params.paymentId, status: 'canceled', now: params.now })
+  return { ok: true }
+}
+
 export type RecordManualPaymentResult =
   { ok: true; paymentId: string } | { ok: false; error: 'invoice_not_payable' }
 

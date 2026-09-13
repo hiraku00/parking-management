@@ -8,10 +8,12 @@ import { migrate, resetData } from '../../test/support/migrate'
 import { insertContractor, insertSettings } from '../../test/support/fixtures'
 import {
   approveTransfer,
+  cancelCardCheckout,
   fulfillCheckout,
   recordManualPayment,
   rejectTransfer,
   reportTransfer,
+  resumeCardCheckout,
   startCardCheckout,
 } from './payments'
 
@@ -271,6 +273,176 @@ describe('fulfillCheckout', () => {
       new Date('2026-09-15T00:00:00.000Z'),
     )
     expect(result).toBe('not_found')
+  })
+})
+
+describe('resumeCardCheckout / cancelCardCheckout', () => {
+  async function setupPendingCardPayment(sessionId = 'cs_test_123', amount = 3000) {
+    await insertSettings(db, { cardPaymentEnabled: true })
+    const contractorId = await insertContractor(db)
+    const invoiceId = await createOpenInvoice(contractorId, '2026-09', amount)
+    const [payment] = await db
+      .insert(payments)
+      .values({
+        contractorId,
+        method: 'card',
+        channel: 'portal',
+        status: 'pending',
+        amount,
+        stripeCheckoutSessionId: sessionId,
+      })
+      .returning({ id: payments.id })
+    await db.insert(paymentAllocations).values({ paymentId: payment.id, invoiceId, amount, state: 'pending' })
+    return { contractorId, invoiceId, paymentId: payment.id }
+  }
+
+  function fakeCheckoutClient(
+    session: Partial<Stripe.Checkout.Session>,
+    opts: { expire?: () => Promise<void> } = {},
+  ): Pick<Stripe, 'checkout'> {
+    return {
+      checkout: {
+        sessions: {
+          retrieve: async () => session as Stripe.Checkout.Session,
+          expire: opts.expire ?? (async () => {}),
+        },
+      },
+    } as unknown as Pick<Stripe, 'checkout'>
+  }
+
+  it('resume: セッションがまだopenならそのURLへredirectする', async () => {
+    const { paymentId, contractorId } = await setupPendingCardPayment()
+
+    const result = await resumeCardCheckout(db, {
+      paymentId,
+      contractorId,
+      now: new Date('2026-09-15T00:00:00.000Z'),
+      stripeClient: fakeCheckoutClient({ status: 'open', url: 'https://checkout.stripe.com/cs_test_123' }),
+    })
+
+    expect(result).toEqual({ kind: 'redirect', url: 'https://checkout.stripe.com/cs_test_123' })
+    const payment = await db.query.payments.findFirst({ where: eq(payments.id, paymentId) })
+    expect(payment?.status).toBe('pending')
+  })
+
+  it('resume: セッションが既にcompleteなら確定処理をしてcompletedを返す', async () => {
+    const { paymentId, contractorId } = await setupPendingCardPayment()
+
+    const result = await resumeCardCheckout(db, {
+      paymentId,
+      contractorId,
+      now: new Date('2026-09-15T00:00:00.000Z'),
+      stripeClient: fakeCheckoutClient({
+        status: 'complete',
+        payment_status: 'paid',
+        amount_total: 3000,
+        currency: 'jpy',
+        metadata: { payment_id: paymentId },
+        payment_intent: 'pi_test_123',
+        payment_method_types: ['card'],
+      }),
+    })
+
+    expect(result).toEqual({ kind: 'completed', paymentId })
+    const payment = await db.query.payments.findFirst({ where: eq(payments.id, paymentId) })
+    expect(payment?.status).toBe('succeeded')
+  })
+
+  it('resume: セッションが期限切れなら配分を解放してexpiredを返す', async () => {
+    const { paymentId, contractorId, invoiceId } = await setupPendingCardPayment()
+
+    const result = await resumeCardCheckout(db, {
+      paymentId,
+      contractorId,
+      now: new Date('2026-09-15T00:00:00.000Z'),
+      stripeClient: fakeCheckoutClient({ status: 'expired' }),
+    })
+
+    expect(result).toEqual({ kind: 'expired' })
+    const payment = await db.query.payments.findFirst({ where: eq(payments.id, paymentId) })
+    expect(payment?.status).toBe('canceled')
+    const allocationRows = await db
+      .select()
+      .from(paymentAllocations)
+      .where(eq(paymentAllocations.invoiceId, invoiceId))
+    expect(allocationRows[0].state).toBe('released')
+  })
+
+  it('resume: 他人の入金を指定すると not_found', async () => {
+    const { paymentId } = await setupPendingCardPayment()
+    const otherContractorId = await insertContractor(db)
+
+    const result = await resumeCardCheckout(db, {
+      paymentId,
+      contractorId: otherContractorId,
+      now: new Date('2026-09-15T00:00:00.000Z'),
+      stripeClient: fakeCheckoutClient({ status: 'open', url: 'https://checkout.stripe.com/x' }),
+    })
+
+    expect(result).toEqual({ kind: 'not_found' })
+  })
+
+  it('cancel: Stripeのセッションを期限切れにし、配分を解放する', async () => {
+    const { paymentId, contractorId, invoiceId } = await setupPendingCardPayment()
+    let expired = false
+
+    const result = await cancelCardCheckout(db, {
+      paymentId,
+      contractorId,
+      now: new Date('2026-09-15T00:00:00.000Z'),
+      stripeClient: fakeCheckoutClient(
+        { status: 'open' },
+        {
+          expire: async () => {
+            expired = true
+          },
+        },
+      ),
+    })
+
+    expect(result).toEqual({ ok: true })
+    expect(expired).toBe(true)
+    const payment = await db.query.payments.findFirst({ where: eq(payments.id, paymentId) })
+    expect(payment?.status).toBe('canceled')
+    const allocationRows = await db
+      .select()
+      .from(paymentAllocations)
+      .where(eq(paymentAllocations.invoiceId, invoiceId))
+    expect(allocationRows[0].state).toBe('released')
+  })
+
+  it('cancel: 取り消した後、同じ月をもう一度支払える', async () => {
+    const { paymentId, contractorId } = await setupPendingCardPayment()
+
+    await cancelCardCheckout(db, {
+      paymentId,
+      contractorId,
+      now: new Date('2026-09-15T00:00:00.000Z'),
+      stripeClient: fakeCheckoutClient({ status: 'open' }),
+    })
+
+    const result = await startCardCheckout(db, {
+      contractorId,
+      count: 1,
+      origin: 'https://example.com',
+      now: new Date('2026-09-15T00:00:00.000Z'),
+      stripeClient: fakeStripeClient('cs_retry'),
+    })
+    expect(result.ok).toBe(true)
+  })
+
+  it('cancel: 他人の入金を指定すると not_found', async () => {
+    const { paymentId } = await setupPendingCardPayment()
+    const otherContractorId = await insertContractor(db)
+
+    const result = await cancelCardCheckout(db, {
+      paymentId,
+      contractorId: otherContractorId,
+      now: new Date('2026-09-15T00:00:00.000Z'),
+      stripeClient: fakeCheckoutClient({ status: 'open' }),
+    })
+
+    expect(result).toEqual({ ok: false, error: 'not_found' })
   })
 })
 
