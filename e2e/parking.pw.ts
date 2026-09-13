@@ -24,6 +24,7 @@ test.beforeAll(async ({ browser }) => {
     '/portal',
     '/portal/history',
     '/portal/pay',
+    '/portal/pay/method?count=1',
     '/portal/pay/transfer',
     '/portal/pay/transfer/done/warmup',
   ]) {
@@ -93,16 +94,15 @@ test.describe('契約者: QRログイン→振込報告→承認→領収書', (
 
     await contractorPage.getByRole('link', { name: 'お支払いへ進む' }).click()
     await expect(contractorPage).toHaveURL(/\/portal\/pay$/)
-    // 月数のSelect（shadcn/Radix）が隠しinputへ値を反映するまでの一瞬を待つ
-    // （待たずに即操作すると、submit時にcountが未送信のまま検証エラーになることがある）。
-    await contractorPage.waitForTimeout(300)
-    await contractorPage.getByLabel('銀行振込').check()
-    await expect(contractorPage.getByLabel('銀行振込')).toBeChecked()
-    await contractorPage.getByRole('button', { name: 'この内容で進む' }).click()
+    await contractorPage.getByRole('button', { name: '次へ' }).click()
+    await expect(contractorPage).toHaveURL(/\/portal\/pay\/method/)
+    await contractorPage.getByLabel('銀行振込', { exact: false }).check()
+    await expect(contractorPage.getByLabel('銀行振込', { exact: false })).toBeChecked()
+    await contractorPage.getByRole('button', { name: 'お支払いへ' }).click()
     await expect(contractorPage).toHaveURL(/\/portal\/pay\/transfer/)
     // テスト用の契約者はフリガナ未設定のため、振込名義は初期値が空になる
     await contractorPage.getByLabel('振込名義').fill(c.name)
-    await contractorPage.getByRole('button', { name: '振込を報告する' }).click()
+    await contractorPage.getByRole('button', { name: '振り込みました' }).click()
     // 振込報告の完了画面（U2）に遷移し、押した結果がその場で分かる
     await expect(contractorPage).toHaveURL(/\/portal\/pay\/transfer\/done\//)
     await expect(contractorPage.getByText('ご連絡ありがとうございます')).toBeVisible()
@@ -134,11 +134,11 @@ test.describe('契約者: QRログイン→振込報告→承認→領収書', (
     const pageA = await contextA.newPage()
     await pageA.goto(loginUrlA)
     await pageA.getByRole('link', { name: 'お支払いへ進む' }).click()
-    await pageA.waitForTimeout(300)
-    await pageA.getByLabel('銀行振込').check()
-    await pageA.getByRole('button', { name: 'この内容で進む' }).click()
+    await pageA.getByRole('button', { name: '次へ' }).click()
+    await pageA.getByLabel('銀行振込', { exact: false }).check()
+    await pageA.getByRole('button', { name: 'お支払いへ' }).click()
     await pageA.getByLabel('振込名義').fill(a.name)
-    await pageA.getByRole('button', { name: '振込を報告する' }).click()
+    await pageA.getByRole('button', { name: '振り込みました' }).click()
     await expect(pageA).toHaveURL(/\/portal\/pay\/transfer\/done\//)
     const paymentUrlA = pageA.url()
 
@@ -242,9 +242,9 @@ test.describe('カード決済', () => {
     const contractorPage = await contractorContext.newPage()
     await contractorPage.goto(loginUrl)
     await contractorPage.getByRole('link', { name: 'お支払いへ進む' }).click()
-    await contractorPage.waitForTimeout(300)
-    await contractorPage.getByLabel('クレジットカード等').check()
-    await contractorPage.getByRole('button', { name: 'この内容で進む' }).click()
+    await contractorPage.getByRole('button', { name: '次へ' }).click()
+    await contractorPage.getByLabel('カード・スマホ決済', { exact: false }).check()
+    await contractorPage.getByRole('button', { name: 'お支払いへ' }).click()
     await contractorPage.waitForURL(/checkout\.stripe\.com/)
     await contractorContext.close()
   })
