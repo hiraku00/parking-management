@@ -33,7 +33,22 @@ const CELL_TITLE: Record<MatrixCellStatus, string> = {
   not_applicable: '対象外',
 }
 
-export default async function AdminDashboardPage() {
+const MATRIX_MONTH_OPTIONS = [3, 6, 12] as const
+type MatrixMonths = (typeof MATRIX_MONTH_OPTIONS)[number]
+
+function parseMatrixMonths(value: string | undefined): MatrixMonths {
+  const n = Number(value)
+  return (MATRIX_MONTH_OPTIONS as readonly number[]).includes(n) ? (n as MatrixMonths) : 12
+}
+
+export default async function AdminDashboardPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ months?: string }>
+}) {
+  const { months: monthsParam } = await searchParams
+  const matrixMonths = parseMatrixMonths(monthsParam)
+
   const db = getDb(appEnv().DB)
   const now = new Date()
 
@@ -44,7 +59,7 @@ export default async function AdminDashboardPage() {
   const [kpi, pendingTransfers, matrix] = await Promise.all([
     getDashboardKpi(db, now, settings.paymentDueDay),
     getPendingTransfers(db),
-    getPaymentMatrix(db, now, settings.paymentDueDay, 12),
+    getPaymentMatrix(db, now, settings.paymentDueDay, matrixMonths),
   ])
 
   return (
@@ -91,7 +106,24 @@ export default async function AdminDashboardPage() {
       )}
 
       <section>
-        <h2 className="mb-3 font-semibold text-slate-900">入金マトリクス（直近12か月）</h2>
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+          <h2 className="font-semibold text-slate-900">入金マトリクス（直近{matrixMonths}か月）</h2>
+          <div className="flex gap-1 rounded-md border bg-white p-1">
+            {MATRIX_MONTH_OPTIONS.map((m) => (
+              <Link
+                key={m}
+                href={`/admin?months=${m}`}
+                className={`rounded px-3 py-1 text-sm font-medium ${
+                  m === matrixMonths
+                    ? 'bg-primary text-primary-foreground'
+                    : 'text-slate-600 hover:bg-slate-100'
+                }`}
+              >
+                {m}か月
+              </Link>
+            ))}
+          </div>
+        </div>
         <div className="overflow-x-auto rounded-lg border bg-white">
           <table className="min-w-full text-sm">
             <thead>

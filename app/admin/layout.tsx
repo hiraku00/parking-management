@@ -23,6 +23,9 @@ export default async function AdminLayout({ children }: { children: React.ReactN
             駐車場管理
           </Link>
           <nav className="order-3 flex w-full items-center gap-6 overflow-x-auto sm:order-2 sm:w-auto sm:flex-1 sm:justify-center sm:overflow-visible">
+            <Link href="/admin" className="shrink-0 text-sm font-medium text-slate-600 hover:text-slate-900">
+              ダッシュボード
+            </Link>
             <Link
               href="/admin/contractors"
               className="shrink-0 text-sm font-medium text-slate-600 hover:text-slate-900"
