@@ -35,6 +35,11 @@
   --line-strong: rgb(60 60 67 / 28%);
   --blue: #0a84ff;
   --blue-strong: #006edb;
+  /* 白文字ボタンの塗りに使う濃さ。--blue（白背景とのコントラスト比3.65）は
+     太字18pxでもWCAG AA（4.5:1）を満たさないため、塗り自体には使わない
+     （axe-core / WCAG 1.4.3。参照: docs/design/10-design-system.md §10.6 U5）。 */
+  --blue-fill: #006edb;
+  --blue-fill-hover: #0059b3;
   --blue-soft: rgb(10 132 255 / 12%);
   --good: #16824a;
   --good-soft: rgb(22 130 74 / 12%);
@@ -238,12 +243,12 @@ textarea:focus-visible,
     pointer-events: none;
   }
   [data-slot='button'][data-variant='default'] {
-    background: var(--blue);
+    background: var(--blue-fill);
     color: #fff;
     box-shadow: 0 1px 2px rgb(0 84 180 / 20%);
   }
   [data-slot='button'][data-variant='default']:hover:not(:disabled) {
-    background: var(--blue-strong);
+    background: var(--blue-fill-hover);
     box-shadow: 0 5px 16px rgb(0 84 180 / 22%);
   }
   [data-slot='button'][data-variant='outline'] {
@@ -700,12 +705,12 @@ textarea:focus-visible,
     cursor: not-allowed;
   }
   .btn--primary {
-    background: var(--blue);
+    background: var(--blue-fill);
     color: #fff;
     box-shadow: 0 1px 2px rgb(0 84 180 / 20%);
   }
   .btn--primary:hover:not(:disabled) {
-    background: var(--blue-strong);
+    background: var(--blue-fill-hover);
   }
   .btn--ghost {
     background: transparent;
