@@ -32,13 +32,13 @@
 
 ## 技術スタック（v2）
 
-| 領域         | 採用                                                        |
-| ------------ | ----------------------------------------------------------- |
-| ホスティング | Cloudflare Workers（vinext）                                |
-| DB           | Cloudflare D1 + Drizzle ORM                                 |
-| オーナー認証 | Cloudflare Access（`/admin` のみ、パスワード不要）          |
-| 契約者認証   | QRコードログイン（主）／氏名＋電話番号下4桁（予備）         |
-| 決済         | Stripe Checkout（カード。将来的にコンビニ払い等も追加可能） |
+| 領域         | 採用                                                                                          |
+| ------------ | --------------------------------------------------------------------------------------------- |
+| ホスティング | Cloudflare Workers（vinext）                                                                  |
+| DB           | Cloudflare D1 + Drizzle ORM                                                                   |
+| オーナー認証 | Cloudflare Access（`/admin` のみ、パスワード不要）                                            |
+| 契約者認証   | QRコードログイン（主）／氏名＋電話番号下4桁（予備）                                           |
+| 決済         | Stripe Checkout（カード。将来的にコンビニ払い等も追加可能）                                   |
 | UI           | Tailwind CSS 4 ＋ 手書きの意味的CSS（Apple／デジ庁調のデザインシステム。Radixは挙動のみ利用） |
 
 決済以外はすべて Cloudflare 上で完結します。詳細と採用理由は [docs/design/README.md](docs/design/README.md) の設計判断一覧を参照してください。
