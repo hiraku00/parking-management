@@ -63,7 +63,12 @@ export async function requireOwner(): Promise<Owner> {
 }
 ```
 
-- ログアウトは `/cdn-cgi/access/logout` へのリンクにする。
+- ログアウトはアプリ内の `/admin/logout` へのリンクにする（直接 `/cdn-cgi/access/logout`
+  にリンクしない。ローカル開発にはAccessが無く404になるため）。`/admin/logout` は
+  `APP_ENV==='production'` のときだけ `/cdn-cgi/access/logout` へリダイレクトし、それ以外
+  （ローカル・プレビュー。`DEV_OWNER_EMAIL` でオーナー認証をバイパスしている）では
+  「開発環境ではログアウトできません」の案内を表示する。参照:
+  docs/design/12-review-followups.md §12.3
 - 監査ログの actor は `owner:<email>` にする。
 
 ## 5.3 契約者

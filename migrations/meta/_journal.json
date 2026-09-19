@@ -15,6 +15,13 @@
       "when": 1789285882951,
       "tag": "0001_flat_dakota_north",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1789805280994,
+      "tag": "0002_curvy_wallow",
+      "breakpoints": true
     }
   ]
 }

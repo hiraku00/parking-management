@@ -41,24 +41,15 @@ function MethodCard({
 }) {
   const copy = METHOD_COPY[method]
   return (
-    <label className="block min-h-16 rounded-md border p-4 has-[:checked]:border-primary has-[:checked]:ring-2 has-[:checked]:ring-primary">
-      <span className="flex items-center gap-3">
-        {selectable && (
-          <input
-            type="radio"
-            name="method"
-            value={method}
-            checked={checked}
-            onChange={onSelect}
-            className="size-5 accent-primary"
-          />
-        )}
-        <span>
-          <span className="block text-lg font-bold text-slate-900">
-            {copy.icon} {copy.title}
-          </span>
-          <span className="block text-base text-muted-foreground">{copy.note}</span>
+    <label className="choice-card">
+      {selectable && (
+        <input type="radio" name="method" value={method} checked={checked} onChange={onSelect} />
+      )}
+      <span className="choice-card-body">
+        <span className="title">
+          {copy.icon} {copy.title}
         </span>
+        <span className="text-base text-muted-foreground">{copy.note}</span>
       </span>
     </label>
   )
@@ -81,11 +72,7 @@ export function MethodForm({
 
   return (
     <form action={formAction} className="space-y-6">
-      {state.error && (
-        <div className="rounded-md bg-destructive/10 p-4 text-base leading-relaxed text-destructive">
-          {state.error}
-        </div>
-      )}
+      {state.error && <div className="notice notice--danger">{state.error}</div>}
       <input type="hidden" name="count" value={count} />
 
       <fieldset className="space-y-3">

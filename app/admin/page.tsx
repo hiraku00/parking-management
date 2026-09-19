@@ -2,36 +2,12 @@ import Link from 'next/link'
 import { appEnv } from '@/lib/env'
 import { getDb } from '@/lib/db/client'
 import { syncInvoices } from '@/lib/services/invoices'
-import {
-  getDashboardKpi,
-  getPaymentMatrix,
-  getPendingTransfers,
-  type MatrixCellStatus,
-} from '@/lib/services/queries'
+import { getDashboardKpi, getPaymentMatrix, getPendingTransfers } from '@/lib/services/queries'
 import { getSettings } from '@/lib/services/settings'
 import { formatMonthJa } from '@/lib/domain/time'
 import { formatYen } from '@/lib/domain/money'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-
-const CELL_LABEL: Record<MatrixCellStatus, string> = {
-  paid: '✅',
-  partial: '◐',
-  pending: '⏳',
-  overdue: '⚠️',
-  unpaid: '○',
-  void: '免',
-  not_applicable: '—',
-}
-
-const CELL_TITLE: Record<MatrixCellStatus, string> = {
-  paid: '支払済み',
-  partial: '一部入金',
-  pending: '確認中',
-  overdue: '滞納',
-  unpaid: '未払い',
-  void: '免除',
-  not_applicable: '対象外',
-}
+import { matrixStatus, MATRIX_STATUS_ORDER } from '@/lib/design/status'
 
 const MATRIX_MONTH_OPTIONS = [3, 6, 12] as const
 type MatrixMonths = (typeof MATRIX_MONTH_OPTIONS)[number]
@@ -69,7 +45,7 @@ export default async function AdminDashboardPage({
         <p className="text-sm text-muted-foreground">{formatMonthJa(kpi.month)}の状況</p>
       </div>
 
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+      <div className="kpi-grid">
         <KpiCard label="今月の請求額" value={formatYen(kpi.billedAmount)} />
         <KpiCard label="入金済み" value={formatYen(kpi.collectedAmount)} />
         <KpiCard
@@ -85,19 +61,33 @@ export default async function AdminDashboardPage({
       </div>
 
       {pendingTransfers.length > 0 && (
-        <Card className="border-amber-200 bg-amber-50">
+        <Card>
           <CardHeader>
-            <CardTitle className="text-amber-900">🔔 確認待ちの振込（{pendingTransfers.length}件）</CardTitle>
+            <CardTitle>🔔 要対応: 確認待ちの振込（{pendingTransfers.length}件）</CardTitle>
           </CardHeader>
-          <CardContent>
-            <ul className="space-y-1 text-sm text-amber-900">
+          <CardContent className="pb-4">
+            <ul className="space-y-1 text-sm">
               {pendingTransfers.map((t) => (
-                <li key={t.paymentId}>
-                  <Link href={`/admin/payments/${t.paymentId}`} className="underline">
-                    {t.contractorName}
+                <li key={t.paymentId} className="flex items-center justify-between gap-3 py-1">
+                  <span>
+                    <Link
+                      href={`/admin/contractors/${t.contractorId}`}
+                      className="font-medium hover:underline"
+                    >
+                      {t.contractorName}
+                    </Link>
+                    <span className="text-muted-foreground">
+                      {' '}
+                      — {formatYen(t.amount)}（{t.payerName ?? '名義不明'} / {t.paidOn ?? '日付不明'}）
+                    </span>
+                  </span>
+                  <Link
+                    href={`/admin/payments/${t.paymentId}`}
+                    className="btn btn--primary"
+                    style={{ minHeight: 34, padding: '0 12px', fontSize: 13 }}
+                  >
+                    確認する
                   </Link>
-                  {' — '}
-                  {formatYen(t.amount)}（{t.payerName ?? '名義不明'} / {t.paidOn ?? '日付不明'}）
                 </li>
               ))}
             </ul>
@@ -107,50 +97,47 @@ export default async function AdminDashboardPage({
 
       <section>
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-          <h2 className="font-semibold text-slate-900">入金マトリクス（直近{matrixMonths}か月）</h2>
-          <div className="flex gap-1 rounded-md border bg-white p-1">
+          <h2 className="font-bold text-slate-900">入金マトリクス（直近{matrixMonths}か月）</h2>
+          <div className="period-control">
             {MATRIX_MONTH_OPTIONS.map((m) => (
-              <Link
-                key={m}
-                href={`/admin?months=${m}`}
-                className={`rounded px-3 py-1 text-sm font-medium ${
-                  m === matrixMonths
-                    ? 'bg-primary text-primary-foreground'
-                    : 'text-slate-600 hover:bg-slate-100'
-                }`}
-              >
+              <Link key={m} href={`/admin?months=${m}`} className={m === matrixMonths ? 'active' : ''}>
                 {m}か月
               </Link>
             ))}
           </div>
         </div>
-        <div className="overflow-x-auto rounded-lg border bg-white">
-          <table className="min-w-full text-sm">
+        <div className="matrix-wrap">
+          <table className="matrix">
             <thead>
-              <tr className="border-b bg-slate-50">
-                <th className="sticky left-0 z-10 bg-slate-50 px-3 py-2 text-left font-medium text-muted-foreground">
-                  契約者
-                </th>
+              <tr>
+                <th className="matrix-name">契約者</th>
                 {matrix.months.map((m) => (
-                  <th key={m} className="px-2 py-2 text-center font-medium text-muted-foreground">
-                    {m.slice(5)}
-                  </th>
+                  <th key={m}>{m.slice(5)}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {matrix.rows.map((row) => (
-                <tr key={row.contractorId} className="border-b last:border-0">
-                  <td className="sticky left-0 z-10 bg-white px-3 py-2 font-medium text-slate-900">
+                <tr key={row.contractorId}>
+                  <td className="matrix-name">
                     <Link href={`/admin/contractors/${row.contractorId}`} className="hover:underline">
                       {row.contractorName}
                     </Link>
                   </td>
                   {matrix.months.map((m) => {
                     const status = row.cells[m] ?? 'not_applicable'
+                    const s = matrixStatus(status)
+                    const Icon = s.icon
                     return (
-                      <td key={m} className="px-2 py-2 text-center" title={CELL_TITLE[status]}>
-                        {CELL_LABEL[status]}
+                      <td key={m}>
+                        <Link
+                          href={`/admin/contractors/${row.contractorId}`}
+                          className={`matrix-cell matrix-cell--${s.tone}`}
+                          aria-label={`${row.contractorName} ${m.slice(5)}月 ${s.label}`}
+                          title={s.label}
+                        >
+                          <Icon />
+                        </Link>
                       </td>
                     )
                   })}
@@ -169,20 +156,30 @@ export default async function AdminDashboardPage({
             </tbody>
           </table>
         </div>
+        <div className="matrix-legend">
+          {MATRIX_STATUS_ORDER.map((kind) => {
+            const s = matrixStatus(kind)
+            const Icon = s.icon
+            return (
+              <span key={kind} className={`matrix-legend-item tone-${s.tone}`}>
+                <Icon />
+                {s.label}
+              </span>
+            )
+          })}
+        </div>
       </section>
     </div>
   )
 }
 
 function KpiCard({ label, value, tone }: { label: string; value: string; tone?: 'warn' | 'danger' }) {
-  const toneClass =
-    tone === 'danger' ? 'text-destructive' : tone === 'warn' ? 'text-amber-600' : 'text-slate-900'
   return (
-    <Card>
-      <CardContent className="p-4">
-        <p className="text-xs font-medium text-muted-foreground">{label}</p>
-        <p className={`mt-1 text-xl font-semibold ${toneClass}`}>{value}</p>
-      </CardContent>
-    </Card>
+    <div className={`kpi${tone === 'danger' ? ' kpi--alert' : ''}`}>
+      <p className="label">{label}</p>
+      <strong className={tone === 'danger' ? 'tone-danger' : tone === 'warn' ? 'tone-warn' : ''}>
+        {value}
+      </strong>
+    </div>
   )
 }

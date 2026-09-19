@@ -35,25 +35,25 @@ export default async function TransferPage({ searchParams }: { searchParams: Pro
         <CardHeader>
           <CardTitle>振込先</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-3 text-base text-slate-900">
-          <div className="flex items-center justify-between gap-3">
-            <p>
+        <CardContent className="text-base text-slate-900">
+          <div className="copy-row">
+            <p className="value">
               {settings.bankName} {settings.bankBranch}
             </p>
             <CopyButton value={`${settings.bankName ?? ''} ${settings.bankBranch ?? ''}`.trim()} />
           </div>
-          <div className="flex items-center justify-between gap-3">
-            <p>
+          <div className="copy-row">
+            <p className="value">
               {settings.bankAccountType} {settings.bankAccountNumber}
             </p>
             <CopyButton value={settings.bankAccountNumber ?? ''} />
           </div>
-          <div className="flex items-center justify-between gap-3">
-            <p>{settings.bankAccountHolderKana}</p>
+          <div className="copy-row">
+            <p className="value">{settings.bankAccountHolderKana}</p>
             <CopyButton value={settings.bankAccountHolderKana ?? ''} />
           </div>
-          <div className="flex items-center justify-between gap-3 border-t pt-3">
-            <p className="text-2xl font-bold">お振込金額 {formatYen(amount)}</p>
+          <div className="copy-row">
+            <p className="value text-2xl font-bold">お振込金額 {formatYen(amount)}</p>
             <CopyButton value={String(amount)} />
           </div>
         </CardContent>

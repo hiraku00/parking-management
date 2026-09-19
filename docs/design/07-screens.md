@@ -44,8 +44,9 @@
 | `/admin/contractors/[id]`            | 契約者の詳細（タブ: 基本情報 / 請求 / 入金 / ログイン）                            | オーナー |
 | `/admin/contractors/[id]/login-card` | ログインカードの印刷                                                               | オーナー |
 | `/admin/payments`                    | 入金一覧（フィルタ: 状態・方法・期間）                                             | オーナー |
-| `/admin/payments/[id]`               | 入金の詳細（配分、Stripeへのリンク、承認・却下）                                   | オーナー |
+| `/admin/payments/[id]`               | 入金の詳細（配分、Stripeへのリンク、承認・却下・返金）                             | オーナー |
 | `/admin/payments/[id]/receipt`       | 領収書                                                                             | オーナー |
+| `/admin/payments/[id]/credit-note`   | 返還請求書（返金した入金のみ）                                                     | オーナー |
 | `/admin/settings`                    | 設定                                                                               | オーナー |
 | `/admin/audit`                       | 操作履歴                                                                           | オーナー |
 | `/legal/tokushoho`, `/legal/privacy` | 法定表記                                                                           | 公開     |
@@ -176,7 +177,7 @@
 
 ### `/admin/payments/[id]`
 
-入金の情報、配分（どの月にいくら）、振込名義・振込日、Stripe（Payment Intentのダッシュボードへのリンク）、状態の履歴（監査ログ）。pending の振込なら［承認］［却下（理由を入力）］。succeeded なら［領収書］。
+入金の情報、配分（どの月にいくら）、振込名義・振込日、Stripe（Payment Intentのダッシュボードへのリンク）、状態の履歴（監査ログ）。pending の振込なら［承認］［却下（理由を入力）］。succeeded なら［領収書］［返金する（返金方法・理由を入力。全額のみ）］。返金後は「返金済み」の表示と［返還請求書］を出す。参照: docs/design/06-billing-payments.md §6.9
 
 ### `/admin/settings`
 

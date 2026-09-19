@@ -13,21 +13,19 @@ export default async function PortalLayout({ children }: { children: React.React
   await syncInvoices(db, { contractorIds: [contractor.id], now: new Date() })
 
   return (
-    <div className="min-h-screen bg-slate-50 text-lg">
-      <header className="border-b bg-white">
-        <div className="mx-auto flex max-w-2xl items-center justify-between px-4 py-4">
-          <div>
-            <h1 className="text-lg font-bold text-slate-900">駐車場管理システム</h1>
-            <p className="text-base text-muted-foreground">ようこそ、{contractor.name}さん</p>
-          </div>
-          <form action={logoutAction}>
-            <Button type="submit" variant="outline" size="sm" className="min-h-12">
-              ログアウト
-            </Button>
-          </form>
+    <div className="portal-shell text-lg">
+      <header className="mb-6 flex items-center justify-between gap-3">
+        <div>
+          <h1 className="text-lg font-bold text-slate-900">駐車場管理システム</h1>
+          <p className="text-base text-muted-foreground">ようこそ、{contractor.name}さん</p>
         </div>
+        <form action={logoutAction}>
+          <Button type="submit" variant="outline" size="sm" className="min-h-12">
+            ログアウト
+          </Button>
+        </form>
       </header>
-      <main className="mx-auto max-w-2xl px-4 py-6">{children}</main>
+      <main>{children}</main>
     </div>
   )
 }

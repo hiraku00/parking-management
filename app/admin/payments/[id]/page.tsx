@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { eq } from 'drizzle-orm'
+import { and, eq } from 'drizzle-orm'
 import { appEnv } from '@/lib/env'
 import { getDb } from '@/lib/db/client'
 import { contractors, invoices, payments, paymentAllocations, receipts } from '@/lib/db/schema'
@@ -10,6 +10,7 @@ import { PAYMENT_METHOD_LABELS } from '@/lib/services/receipts'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { ApproveRejectForm } from './approve-reject-form'
+import { RefundForm } from './refund-form'
 
 const STATUS_LABEL: Record<string, string> = {
   pending: '確認待ち',
@@ -17,6 +18,7 @@ const STATUS_LABEL: Record<string, string> = {
   failed: '失敗',
   canceled: 'キャンセル',
   rejected: '却下',
+  refunded: '返金済み',
 }
 
 export default async function AdminPaymentDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -38,7 +40,15 @@ export default async function AdminPaymentDetailPage({ params }: { params: Promi
     .where(eq(paymentAllocations.paymentId, id))
     .orderBy(invoices.month)
 
-  const receipt = await db.query.receipts.findFirst({ where: eq(receipts.paymentId, id) })
+  const receipt = await db.query.receipts.findFirst({
+    where: and(eq(receipts.paymentId, id), eq(receipts.kind, 'receipt')),
+  })
+  const creditNote =
+    payment.status === 'refunded'
+      ? await db.query.receipts.findFirst({
+          where: and(eq(receipts.paymentId, id), eq(receipts.kind, 'credit_note')),
+        })
+      : null
 
   return (
     <div className="max-w-2xl space-y-6">
@@ -73,10 +83,24 @@ export default async function AdminPaymentDetailPage({ params }: { params: Promi
           <p>対象月: {allocationRows.map((a) => formatMonthJa(a.month as YearMonth)).join('、') || '-'}</p>
           <p className="text-sm text-muted-foreground">報告日時: {formatDateJa(payment.createdAt)}</p>
           {payment.rejectReason && <p className="text-destructive">却下理由: {payment.rejectReason}</p>}
+          {payment.status === 'refunded' && (
+            <div className="notice notice--warn">
+              返金済み（{payment.refundedAt ? formatDateJa(payment.refundedAt) : ''}
+              {payment.refundedBy ? ` / ${payment.refundedBy}` : ''}）
+              {payment.refundReason && <> — 理由: {payment.refundReason}</>}
+            </div>
+          )}
           {receipt && (
             <p>
               <Link href={`/admin/payments/${id}/receipt`} className="text-primary hover:underline">
                 📄 領収書を表示
+              </Link>
+            </p>
+          )}
+          {creditNote && (
+            <p>
+              <Link href={`/admin/payments/${id}/credit-note`} className="text-primary hover:underline">
+                📄 返還請求書を表示
               </Link>
             </p>
           )}
@@ -85,6 +109,12 @@ export default async function AdminPaymentDetailPage({ params }: { params: Promi
 
       {payment.status === 'pending' && payment.method === 'bank_transfer' && (
         <ApproveRejectForm paymentId={id} />
+      )}
+
+      {payment.status === 'succeeded' && (
+        <div>
+          <RefundForm paymentId={id} paymentMethod={payment.method} />
+        </div>
       )}
     </div>
   )
