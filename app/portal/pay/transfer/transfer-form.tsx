@@ -31,11 +31,7 @@ export function TransferForm({
 
   return (
     <form action={formAction} className="space-y-5">
-      {state.error && (
-        <div className="rounded-md bg-destructive/10 p-4 text-base leading-relaxed text-destructive">
-          {state.error}
-        </div>
-      )}
+      {state.error && <div className="notice notice--danger">{state.error}</div>}
       <input type="hidden" name="count" value={count} />
       <div className="space-y-2">
         <Label htmlFor="payerName" className="text-base">

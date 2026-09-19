@@ -97,6 +97,25 @@ export function formatMonthJa(ym: YearMonth): string {
 }
 
 /**
+ * 複数月をまとめて表示するときの表記。1〜2件は "2026年7月と2026年8月" と列挙し、
+ * 3件以上は "2026年7月〜9月"（年をまたぐ場合は "2026年12月〜2027年2月"）と
+ * 範囲でまとめる。"○月と○月と○月と○月" の連続表記は年をまたぐたびに読みにくく
+ * なるため（高齢の利用者を含む契約者ポータルの方針 docs/design/07-screens.md §7.1）。
+ * `months` は昇順であることを前提とする。
+ */
+export function formatMonthRangeJa(months: YearMonth[]): string {
+  if (months.length === 0) return ''
+  if (months.length <= 2) return months.map(formatMonthJa).join('と')
+
+  const first = months[0]
+  const last = months[months.length - 1]
+  const [firstYear] = first.split('-')
+  const [lastYear, lastMonth] = last.split('-')
+  const lastLabel = firstYear === lastYear ? MONTH_LABELS_JA[Number(lastMonth) - 1] : formatMonthJa(last)
+  return `${formatMonthJa(first)}〜${lastLabel}`
+}
+
+/**
  * 指定した月の請求が、支払期日を過ぎているかどうかを判定する。
  * 前月以前はいつでも滞納扱い、来月以降は常に対象外。当月分は `dueDay`
  * （1〜28。NULLは月末）を過ぎたかどうかで判定する。

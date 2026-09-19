@@ -18,6 +18,7 @@ const ACTION_LABEL: Record<string, string> = {
   'payment.succeed': '入金を確定',
   'payment.reject': '振込を却下',
   'payment.record_manual': '入金を手動記録',
+  'payment.refund': '入金を返金',
   'payment.amount_mismatch': '金額不一致（要確認）',
   'settings.update': '設定を更新',
 }
@@ -39,7 +40,7 @@ export default async function AuditLogPage({ searchParams }: { searchParams: Pro
           <CardTitle>監査ログ（新しい順）</CardTitle>
         </CardHeader>
         <CardContent className="p-0">
-          <Table>
+          <Table className="data-table">
             <TableHeader>
               <TableRow>
                 <TableHead>日時</TableHead>
@@ -51,12 +52,16 @@ export default async function AuditLogPage({ searchParams }: { searchParams: Pro
             <TableBody>
               {entries.map((e) => (
                 <TableRow key={e.id}>
-                  <TableCell className="whitespace-nowrap">{formatDateJa(e.createdAt)}</TableCell>
-                  <TableCell>{ACTION_LABEL[e.action] ?? e.action}</TableCell>
-                  <TableCell className="text-muted-foreground">
+                  <TableCell data-label="日時" className="whitespace-nowrap">
+                    {formatDateJa(e.createdAt)}
+                  </TableCell>
+                  <TableCell data-label="操作">{ACTION_LABEL[e.action] ?? e.action}</TableCell>
+                  <TableCell data-label="対象" className="text-muted-foreground">
                     {e.entityType}:{e.entityId}
                   </TableCell>
-                  <TableCell className="text-muted-foreground">{e.actor}</TableCell>
+                  <TableCell data-label="実行者" className="text-muted-foreground">
+                    {e.actor}
+                  </TableCell>
                 </TableRow>
               ))}
               {entries.length === 0 && (

@@ -18,8 +18,16 @@ export function Receipt(props: {
   taxAmount: number
   paymentMethodLabel: string
   issuer: IssuerSnapshot
+  kind?: 'receipt' | 'credit_note'
 }) {
-  const title = props.issuer.registrationNumber ? '領収書（適格簡易請求書）' : '領収書'
+  const isCreditNote = props.kind === 'credit_note'
+  const title = isCreditNote
+    ? props.issuer.registrationNumber
+      ? '返金領収書（適格返還請求書）'
+      : '返金領収書'
+    : props.issuer.registrationNumber
+      ? '領収書（適格簡易請求書）'
+      : '領収書'
 
   return (
     <div className="mx-auto max-w-2xl border border-slate-300 bg-white p-8 print:border-0 print:p-0">

@@ -24,8 +24,8 @@ export default async function ContractorsPage() {
         </Button>
       </div>
 
-      <div className="rounded-lg border bg-white">
-        <Table>
+      <div className="rounded-[var(--radius-card)] border border-white/90 bg-[var(--surface)] shadow-[var(--shadow-card)]">
+        <Table className="data-table">
           <TableHeader>
             <TableRow>
               <TableHead>氏名</TableHead>
@@ -38,7 +38,7 @@ export default async function ContractorsPage() {
           <TableBody>
             {rows.map((c) => (
               <TableRow key={c.id}>
-                <TableCell>
+                <TableCell data-label="氏名" data-span-all>
                   <Link
                     href={`/admin/contractors/${c.id}`}
                     className="font-medium text-primary hover:underline"
@@ -46,10 +46,16 @@ export default async function ContractorsPage() {
                     {c.name}
                   </Link>
                 </TableCell>
-                <TableCell className="text-muted-foreground">{c.spaceLabel ?? '-'}</TableCell>
-                <TableCell className="text-muted-foreground">{c.phone}</TableCell>
-                <TableCell className="text-muted-foreground">{formatYen(c.monthlyFee)}</TableCell>
-                <TableCell className="text-muted-foreground">
+                <TableCell data-label="区画" className="text-muted-foreground">
+                  {c.spaceLabel ?? '-'}
+                </TableCell>
+                <TableCell data-label="電話番号" className="text-muted-foreground">
+                  {c.phone}
+                </TableCell>
+                <TableCell data-label="月額料金" className="text-muted-foreground">
+                  {formatYen(c.monthlyFee)}
+                </TableCell>
+                <TableCell data-label="契約期間" data-span-all className="text-muted-foreground">
                   {c.contractStartMonth} 〜 {c.contractEndMonth ?? '無期限'}
                 </TableCell>
               </TableRow>

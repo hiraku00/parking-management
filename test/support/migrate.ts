@@ -3,10 +3,11 @@
 // 1ファイルごとに1文ずつ prepare して batch で流す。
 import migration0000 from '../../migrations/0000_init.sql?raw'
 import migration0001 from '../../migrations/0001_flat_dakota_north.sql?raw'
+import migration0002 from '../../migrations/0002_curvy_wallow.sql?raw'
 
 // migrations/*.sql が増えたら、番号順にここへ追加する
 // （wrangler d1 migrations apply と同じ適用順を、テストでも再現するため）。
-const MIGRATIONS = [migration0000, migration0001]
+const MIGRATIONS = [migration0000, migration0001, migration0002]
 
 const TABLES_IN_FK_SAFE_DELETE_ORDER = [
   'payment_allocations',

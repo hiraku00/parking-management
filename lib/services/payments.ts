@@ -15,7 +15,12 @@ import { getStripe } from '../stripe'
 import { type Actor, auditLogInsert } from './audit'
 import { recalculateInvoicesForPaymentStatement, syncInvoices } from './invoices'
 import { getUnpaidInvoicesForContractor } from './queries'
-import { buildReceiptDescription, issueReceiptStatement, PAYMENT_METHOD_LABELS } from './receipts'
+import {
+  buildCreditNoteDescription,
+  buildReceiptDescription,
+  issueReceiptStatement,
+  PAYMENT_METHOD_LABELS,
+} from './receipts'
 import { getSettings } from './settings'
 
 type PaymentMethodValue = (typeof PAYMENT_METHODS)[number]
@@ -613,4 +618,109 @@ export async function recordManualPayment(
   })
 
   return { ok: true, paymentId }
+}
+
+export type RefundPaymentResult =
+  { ok: true } | { ok: false; error: 'not_found' | 'not_refundable' | 'stripe_error' }
+
+/**
+ * succeeded の入金を返金する（全額のみ。部分返金はv1.5では対象外）。カード決済は
+ * Stripeで実際に返金し、現金・振込は物理的な返金（手渡し・振込）を記録するだけ。
+ * 入金は物理削除せず `refunded` として台帳に残す。対象の請求は再び未払いに戻る。
+ * 参照: docs/design/12-review-followups.md §12.2
+ */
+export async function refundPayment(
+  db: Db,
+  params: {
+    paymentId: string
+    reason: string
+    refundMethod: 'card' | 'bank_transfer' | 'cash'
+    owner: { email: string }
+    now: Date
+  },
+): Promise<RefundPaymentResult> {
+  const payment = await db.query.payments.findFirst({ where: eq(payments.id, params.paymentId) })
+  if (!payment) return { ok: false, error: 'not_found' }
+  if (payment.status !== 'succeeded') return { ok: false, error: 'not_refundable' }
+
+  let stripeRefundId: string | undefined
+  if (payment.method === 'card') {
+    if (!payment.stripePaymentIntentId) return { ok: false, error: 'stripe_error' }
+    try {
+      const refund = await getStripe().refunds.create(
+        { payment_intent: payment.stripePaymentIntentId },
+        { idempotencyKey: `refund:${params.paymentId}` },
+      )
+      stripeRefundId = refund.id
+    } catch {
+      return { ok: false, error: 'stripe_error' }
+    }
+  }
+
+  const appliedAllocations = await db
+    .select({ invoiceId: paymentAllocations.invoiceId })
+    .from(paymentAllocations)
+    .where(and(eq(paymentAllocations.paymentId, params.paymentId), eq(paymentAllocations.state, 'applied')))
+  const invoiceIds = appliedAllocations.map((a) => a.invoiceId)
+  const [contractor, settingsRow, invoiceRows] = await Promise.all([
+    db.query.contractors.findFirst({ where: eq(contractors.id, payment.contractorId) }),
+    getSettings(db),
+    invoiceIds.length > 0
+      ? db.select({ month: invoices.month }).from(invoices).where(inArray(invoices.id, invoiceIds))
+      : Promise.resolve([] as { month: string }[]),
+  ])
+
+  const issuer: IssuerSnapshot = {
+    businessName: settingsRow.businessName,
+    address: settingsRow.businessAddress,
+    phone: settingsRow.businessPhone,
+    registrationNumber: settingsRow.invoiceRegistrationNumber,
+  }
+
+  await db.batch([
+    db
+      .update(payments)
+      .set({
+        status: 'refunded',
+        refundedAt: params.now,
+        refundedBy: params.owner.email,
+        refundReason: params.reason,
+        refundMethod: params.refundMethod,
+        ...(stripeRefundId ? { stripeRefundId } : {}),
+        updatedAt: params.now,
+      })
+      .where(and(eq(payments.id, params.paymentId), eq(payments.status, 'succeeded'))),
+    db
+      .update(paymentAllocations)
+      .set({ state: 'released' })
+      .where(
+        and(eq(paymentAllocations.paymentId, params.paymentId), eq(paymentAllocations.state, 'applied')),
+      ),
+  ])
+  await recalculateInvoicesForPaymentStatement(db, params.paymentId, params.now)
+  await issueReceiptStatement(db, {
+    paymentId: params.paymentId,
+    now: params.now,
+    transactionDate: todayJst(params.now),
+    recipientName: contractor?.name ?? '',
+    description: buildCreditNoteDescription({
+      months: invoiceRows.map((i) => i.month as YearMonth),
+      spaceLabel: contractor?.spaceLabel ?? null,
+    }),
+    amount: payment.amount,
+    taxRate: settingsRow.taxRate,
+    paymentMethodLabel: PAYMENT_METHOD_LABELS[params.refundMethod],
+    issuer,
+    kind: 'credit_note',
+    expectedStatus: 'refunded',
+  })
+  await auditLogInsert(db, {
+    actor: { kind: 'owner', email: params.owner.email },
+    action: 'payment.refund',
+    entityType: 'payment',
+    entityId: params.paymentId,
+    detail: { reason: params.reason, refundMethod: params.refundMethod, amount: payment.amount },
+  })
+
+  return { ok: true }
 }

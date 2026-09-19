@@ -233,3 +233,43 @@ sequenceDiagram
 - 消費税額 = `floor(amount × rate ÷ (100 + rate))`（1枚の領収書ごとに1回だけ端数処理する）
 - 月極駐車場の賃貸は、原則として消費税の課税対象です（10%）。免税事業者の場合は、登録番号を空欄にすると通常の領収書として表示します。
 - 電子的に交付する領収書は、印紙税の対象外です。紙に印刷して渡す運用の場合、5万円以上なら印紙が必要になる点を運用ガイドに記載します。
+
+## 6.9 返金
+
+`refundPayment(owner, { paymentId, reason, refundMethod: 'card'|'bank_transfer'|'cash' })`
+
+先払い（最大12か月）の導入により、解約時の前払い分の払い戻しが必要になった。`succeeded` の
+入金だけを対象に、**全額返金のみ**行える（部分返金は対象外。前払い数か月分の一部だけ返す
+場合は、対象の入金を丸ごと返金してから、残りの分を別入金として記録し直す）。
+
+```mermaid
+sequenceDiagram
+  participant O as オーナー
+  participant W as Worker
+  participant S as Stripe
+  O->>W: 入金の詳細で「返金する」（返金方法・理由を入力）
+  alt カード決済
+    W->>S: refunds.create（idempotencyKey: refund:<paymentId>）
+    S-->>W: refund.id
+  else 振込・現金
+    Note over W: Stripeは呼ばない。記録するだけ（実際の送金・手渡しは別途行う）
+  end
+  W->>W: batch: payments.status='refunded' / allocationsをreleasedに戻す
+  W->>W: 請求を再計算（paid → open）→ 契約者は再び未払いとして支払える
+  W->>W: 適格返還請求書を発行（領収書は残したまま追加で1枚）
+  W->>W: 監査ログ payment.refund
+```
+
+- カード決済（`method='card'`）は Stripe へ実際に返金する。`stripePaymentIntentId` が無い、
+  または Stripe 側でエラーになった場合はDBを変更せず `stripe_error` を返す。
+- 振込・現金は物理的な返金（振込・手渡し）をオーナーが別途行う前提で、システムは
+  「返金済み」として記録するだけ。
+- 入金は物理削除せず `refunded` として台帳に残す（承認・却下の履歴と同じ扱い）。
+- 発行済みの領収書は消さず、返金の事実として**適格返還請求書**（`receipts.kind='credit_note'`）
+  を追加で1枚発行する。記載項目は領収書とほぼ同じで、表題が「返金領収書（適格返還請求書）」、
+  但し書きが「〜の返金」になる。表示は `/admin/payments/[id]/credit-note`（契約者側の画面は
+  無い。返金の連絡は管理者が別途行う）。
+- 対象の請求は消込額が請求額を下回るため `open` に戻り、契約者のホームに反映される
+  （`syncInvoices` は既存請求を上書きしないため、次回表示時にそのまま未払いとして出る）。
+
+参照: docs/design/04-data-model.md §4.5, docs/design/12-review-followups.md §12.2

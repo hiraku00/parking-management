@@ -5,9 +5,11 @@ import { getDb } from '@/lib/db/client'
 import { requireContractor } from '@/lib/auth/contractor-session'
 import { getUnpaidInvoicesForContractor } from '@/lib/services/queries'
 import { getSettings } from '@/lib/services/settings'
-import { formatMonthJa } from '@/lib/domain/time'
+import { formatMonthRangeJa } from '@/lib/domain/time'
 import { formatYen } from '@/lib/domain/money'
 import { Button } from '@/components/ui/button'
+import { DotIcon } from '@/components/ui/icons'
+import { PrepaySelector } from './prepay-selector'
 
 /**
  * お支払い ステップ1/2: どの月の分を払うか選ぶ。method="get" で次のステップへ
@@ -39,10 +41,20 @@ export default async function PayPage({ searchParams }: { searchParams: Promise<
     redirect('/portal/pay/method?count=1')
   }
 
+  // 未払い分（滞納・当月分）は選ばせず、常にまとめて1件として払う。
+  // 先払い分（まだ支払期日が来ていない将来の月）だけを、任意で追加できる
+  // 選択肢にする。「未払い分は一括、先払い分は期間を選択」という方針により、
+  // 滞納が何か月あっても選択肢が増殖しない（07-screens.md §7.1「1画面に主な
+  // 操作は1つ」）。
   const neededCount = unpaid.filter((i) => i.timing !== 'future').length || 1
+  const owedTargets = unpaid.slice(0, neededCount)
+  const owedAmount = owedTargets.reduce((sum, i) => sum + i.remaining, 0)
+  const owedMonthsLabel = formatMonthRangeJa(owedTargets.map((i) => i.month))
+  const prepayOptions = unpaid.length - neededCount
+
   const requestedCount = Number(countParam ?? '')
   const defaultCount =
-    Number.isInteger(requestedCount) && requestedCount >= 1 && requestedCount <= unpaid.length
+    Number.isInteger(requestedCount) && requestedCount >= neededCount && requestedCount <= unpaid.length
       ? requestedCount
       : neededCount
 
@@ -55,51 +67,33 @@ export default async function PayPage({ searchParams }: { searchParams: Promise<
         <p className="text-base text-muted-foreground">ステップ 1/2</p>
       </div>
 
-      <p className="text-lg font-bold text-slate-900">どの月の分をお支払いしますか？</p>
-
-      <form action="/portal/pay/method" method="get" className="space-y-5">
-        <fieldset className="space-y-3">
-          <legend className="sr-only">お支払いの範囲</legend>
-          {unpaid.map((_, index) => {
-            const count = index + 1
-            const targets = unpaid.slice(0, count)
-            const amount = targets.reduce((sum, i) => sum + i.remaining, 0)
-            const monthsLabel = targets.map((i) => formatMonthJa(i.month)).join('と')
-            const note =
-              count === neededCount
-                ? 'お支払いが必要な分'
-                : count > neededCount
-                  ? `${formatMonthJa(unpaid[count - 1].month)}も一緒に払う`
-                  : null
-
-            return (
-              <label
-                key={count}
-                className="block min-h-16 rounded-md border p-4 has-[:checked]:border-primary has-[:checked]:ring-2 has-[:checked]:ring-primary"
-              >
-                <span className="flex items-center justify-between gap-3">
-                  <span className="flex items-center gap-3">
-                    <input
-                      type="radio"
-                      name="count"
-                      value={count}
-                      defaultChecked={count === defaultCount}
-                      className="size-5 accent-primary"
-                    />
-                    <span className="text-lg font-bold text-slate-900">{monthsLabel}分</span>
-                  </span>
-                  <span className="text-lg font-bold text-slate-900">{formatYen(amount)}</span>
-                </span>
-                {note && <span className="mt-1 block pl-8 text-base text-muted-foreground">{note}</span>}
-              </label>
-            )
-          })}
-        </fieldset>
-
-        <Button type="submit" size="lg" className="h-14 w-full text-lg font-bold">
-          次へ
-        </Button>
-      </form>
+      {prepayOptions <= 0 ? (
+        <>
+          <p className="text-lg font-bold text-slate-900">お支払いいただく金額</p>
+          <div className="state-hero" style={{ padding: '22px 20px', gap: 6 }}>
+            <span className="status-pill status-pill--info">
+              <DotIcon className="ico" />
+              未払い分
+            </span>
+            <p className="text-lg font-bold text-slate-900">{owedMonthsLabel}分</p>
+            <p className="amount">{formatYen(owedAmount)}</p>
+          </div>
+          <form action="/portal/pay/method" method="get">
+            <input type="hidden" name="count" value={neededCount} />
+            <Button type="submit" size="lg" className="h-14 w-full text-lg font-bold">
+              次へ
+            </Button>
+          </form>
+        </>
+      ) : (
+        <PrepaySelector
+          neededCount={neededCount}
+          owedAmount={owedAmount}
+          owedMonthsLabel={owedMonthsLabel}
+          extraInvoices={unpaid.slice(neededCount).map((i) => ({ month: i.month, remaining: i.remaining }))}
+          defaultCount={defaultCount}
+        />
+      )}
     </div>
   )
 }

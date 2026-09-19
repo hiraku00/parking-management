@@ -28,6 +28,20 @@ export function buildReceiptDescription(params: {
   return `駐車場使用料 ${range}${space}${partial}`
 }
 
+/** 返金（適格返還請求書）の但し書き。参照: docs/design/12-review-followups.md §12.2 */
+export function buildCreditNoteDescription(params: {
+  months: YearMonth[]
+  spaceLabel: string | null
+}): string {
+  const sorted = [...params.months].sort()
+  const range =
+    sorted.length === 1
+      ? `${formatMonthJa(sorted[0])}分`
+      : `${formatMonthJa(sorted[0])}分〜${formatMonthJa(sorted[sorted.length - 1])}分`
+  const space = params.spaceLabel ? `（区画${params.spaceLabel}）` : ''
+  return `駐車場使用料 ${range}${space} の返金`
+}
+
 /**
  * 入金が succeeded になるのと同じbatchに含める。連番は
  * `COALESCE(MAX(receipt_no),0)+1` をSQLite側で採番することで、書き込みが
@@ -50,16 +64,23 @@ export function issueReceiptStatement(
     taxRate: number
     paymentMethodLabel: string
     issuer: IssuerSnapshot
+    /** 'receipt'=通常の領収書（既定） / 'credit_note'=返金時の適格返還請求書 */
+    kind?: 'receipt' | 'credit_note'
+    /** この入金の状態がこれと一致するときだけ発行する（既定 'succeeded'）。
+     *  返還請求書は 'refunded' になった直後に発行するため 'refunded' を渡す。 */
+    expectedStatus?: 'succeeded' | 'refunded'
   },
 ) {
+  const kind = params.kind ?? 'receipt'
+  const expectedStatus = params.expectedStatus ?? 'succeeded'
   const taxAmount = includedTax(params.amount, params.taxRate)
   const id = crypto.randomUUID()
   return db.run(sql`
     INSERT OR IGNORE INTO receipts
-      (id, receipt_no, payment_id, issued_at, transaction_date, recipient_name, description, amount, tax_rate, tax_amount, payment_method_label, issuer, created_at)
-    SELECT ${id}, COALESCE((SELECT MAX(receipt_no) FROM receipts), 0) + 1, p.id, ${params.now.getTime()}, ${params.transactionDate},
+      (id, receipt_no, kind, payment_id, issued_at, transaction_date, recipient_name, description, amount, tax_rate, tax_amount, payment_method_label, issuer, created_at)
+    SELECT ${id}, COALESCE((SELECT MAX(receipt_no) FROM receipts), 0) + 1, ${kind}, p.id, ${params.now.getTime()}, ${params.transactionDate},
       ${params.recipientName}, ${params.description}, ${params.amount}, ${params.taxRate}, ${taxAmount}, ${params.paymentMethodLabel},
       ${JSON.stringify(params.issuer)}, ${params.now.getTime()}
-    FROM payments p WHERE p.id = ${params.paymentId} AND p.status = 'succeeded'
+    FROM payments p WHERE p.id = ${params.paymentId} AND p.status = ${expectedStatus}
   `)
 }

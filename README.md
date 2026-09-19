@@ -26,17 +26,20 @@
 | 7   | [07-screens.md](docs/design/07-screens.md)                         | 画面・ルート一覧とUX方針                       |
 | 8   | [08-implementation-plan.md](docs/design/08-implementation-plan.md) | 実装フェーズ、テスト計画、CI/CD、リリース手順  |
 | 9   | [09-ux-improvements.md](docs/design/09-ux-improvements.md)         | UX改善計画（契約者のスマホ体験）               |
+| 10  | [10-design-system.md](docs/design/10-design-system.md)             | デザインシステム（トークン・部品・UD不変条件） |
+| 11  | [11-ui-redesign.md](docs/design/11-ui-redesign.md)                 | 画面別のUI再設計                               |
+| 12  | [12-review-followups.md](docs/design/12-review-followups.md)       | 実装レビューで出た論点と対応設計               |
 
 ## 技術スタック（v2）
 
-| 領域         | 採用                                                        |
-| ------------ | ----------------------------------------------------------- |
-| ホスティング | Cloudflare Workers（vinext）                                |
-| DB           | Cloudflare D1 + Drizzle ORM                                 |
-| オーナー認証 | Cloudflare Access（`/admin` のみ、パスワード不要）          |
-| 契約者認証   | QRコードログイン（主）／氏名＋電話番号下4桁（予備）         |
-| 決済         | Stripe Checkout（カード。将来的にコンビニ払い等も追加可能） |
-| UI           | Tailwind CSS 4 / shadcn (radix-ui)                          |
+| 領域         | 採用                                                                                          |
+| ------------ | --------------------------------------------------------------------------------------------- |
+| ホスティング | Cloudflare Workers（vinext）                                                                  |
+| DB           | Cloudflare D1 + Drizzle ORM                                                                   |
+| オーナー認証 | Cloudflare Access（`/admin` のみ、パスワード不要）                                            |
+| 契約者認証   | QRコードログイン（主）／氏名＋電話番号下4桁（予備）                                           |
+| 決済         | Stripe Checkout（カード。将来的にコンビニ払い等も追加可能）                                   |
+| UI           | Tailwind CSS 4 ＋ 手書きの意味的CSS（Apple／デジ庁調のデザインシステム。Radixは挙動のみ利用） |
 
 決済以外はすべて Cloudflare 上で完結します。詳細と採用理由は [docs/design/README.md](docs/design/README.md) の設計判断一覧を参照してください。
 

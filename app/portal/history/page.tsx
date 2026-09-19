@@ -5,7 +5,7 @@ import { requireContractor } from '@/lib/auth/contractor-session'
 import { getPaymentHistoryForContractor } from '@/lib/services/queries'
 import { formatMonthJa } from '@/lib/domain/time'
 import { formatYen } from '@/lib/domain/money'
-import { Card, CardContent } from '@/components/ui/card'
+import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { StatusBadge } from '@/components/portal/status-badge'
 
@@ -39,7 +39,7 @@ export default async function PortalHistoryPage() {
             .filter((p) => p.status !== 'canceled' && p.status !== 'failed')
             .map((p) => (
               <Card key={p.id}>
-                <CardContent className="flex items-center justify-between p-4">
+                <div className="history-item">
                   <div>
                     <p className="text-base font-medium">{p.months.map(formatMonthJa).join('、') || '-'}</p>
                     <p className="text-base text-muted-foreground">
@@ -53,6 +53,7 @@ export default async function PortalHistoryPage() {
                     {p.status === 'succeeded' && <Badge>支払済</Badge>}
                     {p.status === 'pending' && <StatusBadge kind="pending" />}
                     {p.status === 'rejected' && <StatusBadge kind="rejected" />}
+                    {p.status === 'refunded' && <StatusBadge kind="refunded" />}
                     {p.hasReceipt && (
                       <Link
                         href={`/portal/payments/${p.id}/receipt`}
@@ -62,7 +63,7 @@ export default async function PortalHistoryPage() {
                       </Link>
                     )}
                   </div>
-                </CardContent>
+                </div>
               </Card>
             ))}
         </div>

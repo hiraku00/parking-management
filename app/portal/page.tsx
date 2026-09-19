@@ -11,7 +11,13 @@ import {
 import { deriveHomeState } from '@/lib/domain/portal-home'
 import { resumeCardCheckoutAction, cancelCardCheckoutAction } from './actions'
 import { getSettings } from '@/lib/services/settings'
-import { currentMonth, formatDueDateJa, formatMonthJa, type YearMonth } from '@/lib/domain/time'
+import {
+  currentMonth,
+  formatDueDateJa,
+  formatMonthJa,
+  formatMonthRangeJa,
+  type YearMonth,
+} from '@/lib/domain/time'
 import { formatYen } from '@/lib/domain/money'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -27,7 +33,7 @@ const METHOD_LABEL: Record<string, string> = {
 }
 
 function monthsLabel(months: YearMonth[]): string {
-  return months.map(formatMonthJa).join('と')
+  return formatMonthRangeJa(months)
 }
 
 export default async function PortalHomePage() {
@@ -76,16 +82,18 @@ export default async function PortalHomePage() {
         </CardContent>
       </Card>
 
-      <Card>
-        <CardContent className="space-y-4 p-4">
-          {state.kind === 'card_in_progress' && (
-            <>
-              <p className="text-lg font-bold text-slate-900">💳 カードのお支払いが途中です</p>
-              <p className="text-base">
-                {monthsLabel(state.months)}分 {formatYen(state.amount)}
-              </p>
+      <div
+        className={`state-hero${state.kind === 'needs_payment' && state.overdue ? ' state-hero--overdue' : ''}`}
+      >
+        {state.kind === 'card_in_progress' && (
+          <>
+            <StatusBadge kind="inProgress" />
+            <p className="text-lg font-bold text-slate-900">
+              {monthsLabel(state.months)}分 <span className="amount">{formatYen(state.amount)}</span>
+            </p>
+            <div className="actions">
               <form action={resumeCardCheckoutAction.bind(null, state.paymentId)}>
-                <Button type="submit" size="lg" className="h-14 w-full text-lg font-bold">
+                <Button type="submit" size="lg" className="btn--block">
                   お支払いを続ける
                 </Button>
               </form>
@@ -94,72 +102,68 @@ export default async function PortalHomePage() {
                   やめる
                 </Button>
               </form>
-              <p className="text-base text-muted-foreground">30分たつと自動で取り消されます。</p>
-            </>
-          )}
+            </div>
+            <p className="field-note">30分たつと自動で取り消されます。</p>
+          </>
+        )}
 
-          {state.kind === 'rejected' && (
-            <>
-              <p className="text-lg font-bold text-destructive">
-                <StatusBadge kind="rejected" /> {monthsLabel(state.months)}分の振込
-              </p>
-              {state.reason && <p className="text-base">理由: {state.reason}</p>}
-              <Button asChild size="lg" className="h-14 w-full text-lg font-bold">
+        {state.kind === 'rejected' && (
+          <>
+            <StatusBadge kind="rejected" />
+            <p className="text-lg font-bold text-slate-900">{monthsLabel(state.months)}分の振込</p>
+            {state.reason && <p className="text-base">理由: {state.reason}</p>}
+            <div className="actions">
+              <Button asChild size="lg" className="btn--block">
                 <Link href="/portal/pay">もう一度お支払いする</Link>
               </Button>
-            </>
-          )}
+            </div>
+          </>
+        )}
 
-          {state.kind === 'needs_payment' && (
-            <>
-              {state.overdue ? (
-                <p className="text-lg font-bold">
-                  <StatusBadge kind="overdue" />
-                </p>
-              ) : null}
-              <p className="text-lg font-bold text-slate-900">{monthsLabel(state.months)}分</p>
-              <p className="text-3xl font-bold text-slate-900">{formatYen(state.amount)}</p>
-              {!state.overdue && (
-                <p className="text-base text-muted-foreground">
-                  {formatDueDateJa(currentMonth(now), settings.paymentDueDay)}までにお支払いください
-                </p>
-              )}
-              <Button asChild size="lg" className="h-14 w-full text-lg font-bold">
+        {state.kind === 'needs_payment' && (
+          <>
+            <StatusBadge kind={state.overdue ? 'overdue' : 'needsPayment'} />
+            <p className="text-lg font-bold text-slate-900">{monthsLabel(state.months)}分</p>
+            <p className="amount">{formatYen(state.amount)}</p>
+            {!state.overdue && (
+              <p className="due">
+                {formatDueDateJa(currentMonth(now), settings.paymentDueDay)}までにお支払いください
+              </p>
+            )}
+            <div className="actions">
+              <Button asChild size="lg" className="btn--block">
                 <Link href="/portal/pay">お支払いへ進む</Link>
               </Button>
-            </>
-          )}
+            </div>
+          </>
+        )}
 
-          {state.kind === 'waiting_confirmation' && (
-            <>
-              <p className="text-lg font-bold text-slate-900">
-                <StatusBadge kind="pending" /> {monthsLabel(state.months)}分
-              </p>
-              <p className="text-base text-muted-foreground">
-                確認できたら、ここに ✅ が付きます（通常1〜3日）。
-              </p>
-            </>
-          )}
+        {state.kind === 'waiting_confirmation' && (
+          <>
+            <StatusBadge kind="pending" />
+            <p className="text-lg font-bold text-slate-900">{monthsLabel(state.months)}分</p>
+            <p className="field-note">確認できたら、ここに ✅ が付きます（通常1〜3日）。</p>
+          </>
+        )}
 
-          {state.kind === 'all_paid' && (
-            <>
-              <p className="text-lg font-bold text-slate-900">
-                <StatusBadge kind="paid" />
-              </p>
-              {state.nextMonth && (
+        {state.kind === 'all_paid' && (
+          <>
+            <StatusBadge kind="paid" />
+            {state.nextMonth && (
+              <div className="actions">
                 <Button asChild variant="outline" size="lg" className="h-12 w-full text-base">
                   <Link href="/portal/pay">
                     {formatMonthJa(state.nextMonth.month)}分を先に払う（{formatYen(state.nextMonth.amount)}）
                   </Link>
                 </Button>
-              )}
-            </>
-          )}
-        </CardContent>
-      </Card>
+              </div>
+            )}
+          </>
+        )}
+      </div>
 
       {(state.kind === 'needs_payment' || state.kind === 'rejected') && alsoPendingMonths.length > 0 && (
-        <p className="text-base text-muted-foreground">
+        <p className="field-note flex items-center gap-2">
           <StatusBadge kind="pending" /> {monthsLabel(alsoPendingMonths)}分の振込を確認しています
         </p>
       )}
@@ -176,7 +180,7 @@ export default async function PortalHomePage() {
         ) : (
           succeededHistory.map((p) => (
             <Card key={p.id}>
-              <CardContent className="flex items-center justify-between p-4">
+              <div className="history-item">
                 <div>
                   <p className="text-base font-medium">{p.months.map(formatMonthJa).join('、') || '-'}</p>
                   <p className="text-base text-muted-foreground">
@@ -194,7 +198,7 @@ export default async function PortalHomePage() {
                     </Link>
                   )}
                 </div>
-              </CardContent>
+              </div>
             </Card>
           ))
         )}

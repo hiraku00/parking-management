@@ -418,7 +418,7 @@ export async function getPaymentHistoryForContractor(
   const receiptRows = await db
     .select({ paymentId: receipts.paymentId })
     .from(receipts)
-    .where(inArray(receipts.paymentId, paymentIds))
+    .where(and(inArray(receipts.paymentId, paymentIds), eq(receipts.kind, 'receipt')))
   const paymentsWithReceipt = new Set(receiptRows.map((r) => r.paymentId))
 
   return paymentRows.map((p) => ({
@@ -445,11 +445,22 @@ export type ReceiptView = {
   taxAmount: number
   paymentMethodLabel: string
   issuer: IssuerSnapshot
+  kind: 'receipt' | 'credit_note'
 }
 
-/** 契約者ポータル・管理画面の両方の領収書表示から使う（所有者チェックは呼び出し側で行う）。 */
-export async function getReceiptForPayment(db: Db, paymentId: string): Promise<ReceiptView | null> {
-  const receipt = await db.query.receipts.findFirst({ where: eq(receipts.paymentId, paymentId) })
+/**
+ * 契約者ポータル・管理画面の両方の領収書表示から使う（所有者チェックは呼び出し側で行う）。
+ * `kind` を省略すると通常の領収書。返金した入金は領収書と返還請求書の2枚を
+ * 持てるため（`receipts_payment_kind_uq`）、明示的に指定する。
+ */
+export async function getReceiptForPayment(
+  db: Db,
+  paymentId: string,
+  kind: 'receipt' | 'credit_note' = 'receipt',
+): Promise<ReceiptView | null> {
+  const receipt = await db.query.receipts.findFirst({
+    where: and(eq(receipts.paymentId, paymentId), eq(receipts.kind, kind)),
+  })
   if (!receipt) return null
   const payment = await db.query.payments.findFirst({ where: eq(payments.id, paymentId) })
   if (!payment) return null
@@ -466,6 +477,7 @@ export async function getReceiptForPayment(db: Db, paymentId: string): Promise<R
     taxAmount: receipt.taxAmount,
     paymentMethodLabel: receipt.paymentMethodLabel,
     issuer: receipt.issuer,
+    kind: receipt.kind,
   }
 }
 

@@ -1,8 +1,13 @@
 @import 'tailwindcss';
-@import 'tw-animate-css';
-@import 'shadcn/tailwind.css';
 /*
- ---break---
+ * デザインシステム刷新（決定 D14）。shadcn/ui のテーマ（shadcn/tailwind.css・
+ * tw-animate-css・oklchのindigoトークン）は廃止し、Practice/dashboard と同じ
+ * Apple／デジ庁調のトークン＋手書きクラスに置き換える。
+ * 参照: docs/design/10-design-system.md, docs/design/11-ui-redesign.md
+ *
+ * components/ui/* は Radix の挙動（フォーカストラップ・ARIA・キーボード操作）
+ * だけを引き継ぎ、見た目はすべてこのファイルの data-slot セレクタで決める
+ * （10 §10.7「React は状態を渡すだけ」）。
  */
 @custom-variant dark (&:is(.dark *));
 
@@ -17,47 +22,70 @@
   --font-sans:
     -apple-system, BlinkMacSystemFont, 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Noto Sans JP',
     'Yu Gothic UI', Meiryo, system-ui, sans-serif;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  /* indigo-600 / indigo-500: 落ち着いた白地に藍色のアクセント（旧UIのindigoを踏襲）。
-     参照: docs/design/07-screens.md §7.1 */
-  --primary: oklch(0.511 0.262 276.966);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.585 0.233 277.117);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+
+  /* --- dashboard トークン（docs/design/10-design-system.md §10.2） --- */
+  --bg: #eef0f5;
+  --surface: rgb(255 255 255 / 72%);
+  --surface-solid: #fbfbfd;
+  --raised: rgb(255 255 255 / 88%);
+  --ink: #1d1d1f;
+  --muted: #6e6e73;
+  --faint: #8e8e93;
+  --line: rgb(60 60 67 / 18%);
+  --line-strong: rgb(60 60 67 / 28%);
+  --blue: #0a84ff;
+  --blue-strong: #006edb;
+  /* 白文字ボタンの塗りに使う濃さ。--blue（白背景とのコントラスト比3.65）は
+     太字18pxでもWCAG AA（4.5:1）を満たさないため、塗り自体には使わない
+     （axe-core / WCAG 1.4.3。参照: docs/design/10-design-system.md §10.6 U5）。 */
+  --blue-fill: #006edb;
+  --blue-fill-hover: #0059b3;
+  --blue-soft: rgb(10 132 255 / 12%);
+  --good: #16824a;
+  --good-soft: rgb(22 130 74 / 12%);
+  --warning: #8b5d00;
+  --warning-soft: rgb(139 93 0 / 12%);
+  --danger: #c52a37;
+  --danger-soft: rgb(197 42 55 / 10%);
+  --radius-card: 16px;
+  --radius-control: 11px;
+  --radius-pill: 999px;
+  --shadow-card: 0 14px 42px rgb(24 39 75 / 7%);
+  --shadow-raise: 0 18px 42px rgb(24 39 75 / 14%);
+  --ease: 160ms ease-out;
+
+  /* --- shadcn互換トークン（components/ui/* が参照する名前はそのまま、値だけ差し替え） --- */
+  --background: var(--bg);
+  --foreground: var(--ink);
+  --card: var(--surface);
+  --card-foreground: var(--ink);
+  --popover: #fff;
+  --popover-foreground: var(--ink);
+  --primary: var(--blue);
+  --primary-foreground: #fff;
+  --secondary: #e4e7ee;
+  --secondary-foreground: var(--ink);
+  --muted-bg: #e4e7ee;
+  --muted-foreground: var(--muted);
+  --accent: var(--blue-soft);
+  --accent-foreground: var(--blue-strong);
+  --destructive: var(--danger);
+  --destructive-foreground: #fff;
+  --border: var(--line);
+  --input: var(--line-strong);
+  --ring: var(--blue);
+  --radius: 11px;
 }
 
 body {
   margin: 0;
   font-family: var(--font-sans);
-  background: #f8fafc;
-  color: #0f172a;
+  color: var(--ink);
+  background:
+    radial-gradient(circle at 8% 0%, rgb(255 255 255 / 92%), transparent 30rem),
+    radial-gradient(circle at 96% 14%, rgb(194 212 247 / 54%), transparent 26rem), var(--bg);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
   /* 決済金額・電話番号など数字を含む画面が多いため、桁が揃うようにする */
   font-variant-numeric: tabular-nums;
 }
@@ -69,82 +97,50 @@ body {
 @theme inline {
   --font-heading: var(--font-sans);
   --font-sans: var(--font-sans);
-  --color-sidebar-ring: var(--sidebar-ring);
-  --color-sidebar-border: var(--sidebar-border);
-  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
-  --color-sidebar-accent: var(--sidebar-accent);
-  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
-  --color-sidebar-primary: var(--sidebar-primary);
-  --color-sidebar-foreground: var(--sidebar-foreground);
-  --color-sidebar: var(--sidebar);
-  --color-chart-5: var(--chart-5);
-  --color-chart-4: var(--chart-4);
-  --color-chart-3: var(--chart-3);
-  --color-chart-2: var(--chart-2);
-  --color-chart-1: var(--chart-1);
-  --color-ring: var(--ring);
-  --color-input: var(--input);
-  --color-border: var(--border);
-  --color-destructive: var(--destructive);
-  --color-accent-foreground: var(--accent-foreground);
-  --color-accent: var(--accent);
-  --color-muted-foreground: var(--muted-foreground);
-  --color-muted: var(--muted);
-  --color-secondary-foreground: var(--secondary-foreground);
-  --color-secondary: var(--secondary);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-primary: var(--primary);
-  --color-popover-foreground: var(--popover-foreground);
-  --color-popover: var(--popover);
-  --color-card-foreground: var(--card-foreground);
-  --color-card: var(--card);
-  --color-foreground: var(--foreground);
   --color-background: var(--background);
-  --radius-sm: calc(var(--radius) * 0.6);
-  --radius-md: calc(var(--radius) * 0.8);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) * 1.4);
-  --radius-2xl: calc(var(--radius) * 1.8);
-  --radius-3xl: calc(var(--radius) * 2.2);
-  --radius-4xl: calc(var(--radius) * 2.6);
-}
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted-bg);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --radius-sm: 8px;
+  --radius-md: 9px;
+  --radius-lg: var(--radius-control);
+  --radius-xl: var(--radius-card);
+  --radius-2xl: 20px;
 
-/*
- ---break---
- */
-
-.dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+  /* 既存画面で使われているTailwind標準パレットの一部を、dashboardの
+     ニュートラル／状態色に上書きする。JSX側の `bg-slate-50` `text-amber-600`
+     等の呼び出しはそのままに、見た目だけ新トークンへ揃う。 */
+  --color-slate-50: var(--bg);
+  --color-slate-100: #e4e7ee;
+  --color-slate-200: #d9dce4;
+  --color-slate-300: var(--line-strong);
+  --color-slate-400: var(--faint);
+  --color-slate-500: var(--muted);
+  --color-slate-600: var(--muted);
+  --color-slate-700: #46464a;
+  --color-slate-800: #2c2c2e;
+  --color-slate-900: var(--ink);
+  --color-amber-50: #fbf3e3;
+  --color-amber-100: #f5e7c9;
+  --color-amber-200: #ecd8a3;
+  --color-amber-300: #dfc27a;
+  --color-amber-600: var(--warning);
+  --color-amber-900: #5c3f00;
+  --color-emerald-700: var(--good);
 }
 
 /*
@@ -161,11 +157,1000 @@ body {
   html {
     @apply font-sans;
   }
-  /* base層に置くことで、ButtonのasChild（<a>で描画される場合）などの
-     text-*ユーティリティで上書きできるようにする（layerを付けない素の
-     `a { color: inherit }` はTailwindのutilitiesレイヤーより優先されてしまい、
-     bg-primaryなボタンの文字色がtext-primary-foregroundで指定できなかった）。 */
   a {
     color: inherit;
   }
 }
+
+/* U4: すべての操作可能要素に見えるフォーカスリング（色のみに頼らない） */
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+[tabindex]:focus-visible {
+  outline: 3px solid rgb(10 132 255 / 48%);
+  outline-offset: 2px;
+}
+
+/* U6: アニメーションを止めたい利用者には止める */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}
+
+/*
+ * ここから下は @layer components に入れる。Tailwind v4の @import "tailwindcss"
+ * は theme/base/components/utilities のレイヤーを作るため、レイヤーに入れない
+ * 素のCSSは常にすべてのレイヤーより優先されてしまう（詳細度ではなくレイヤー順が
+ * 勝つ）。className="h-14 w-full text-lg font-bold" のようなTailwindユーティリティ
+ * での上書き（契約者向けCTAの56px化など）が効くように、components レイヤーに
+ * 入れてutilitiesレイヤーに勝たせないようにする。
+ */
+@layer components {
+  /* ============================================================
+   レイアウトの骨格（10 §10.3）
+   ============================================================ */
+  .portal-shell {
+    width: min(560px, calc(100% - 32px));
+    margin: 0 auto;
+    padding: 16px 0 64px;
+  }
+  .app-shell {
+    width: min(1320px, calc(100% - 48px));
+    margin: 0 auto;
+    padding: 12px 0 40px;
+  }
+
+  /* ============================================================
+   components/ui/* の再スキン（data-slot / data-variant で駆動）
+   ============================================================ */
+
+  /* --- Button --- */
+  [data-slot='button'] {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    border: 1px solid transparent;
+    border-radius: var(--radius-control);
+    font-weight: 700;
+    font-family: inherit;
+    white-space: nowrap;
+    cursor: pointer;
+    transition:
+      background-color var(--ease),
+      box-shadow var(--ease),
+      transform 100ms ease-out,
+      border-color var(--ease),
+      color var(--ease);
+    height: 44px;
+    padding: 0 18px;
+    font-size: 15px;
+  }
+  [data-slot='button']:active:not(:disabled) {
+    transform: scale(0.97);
+  }
+  [data-slot='button']:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+    pointer-events: none;
+  }
+  [data-slot='button'][data-variant='default'] {
+    background: var(--blue-fill);
+    color: #fff;
+    box-shadow: 0 1px 2px rgb(0 84 180 / 20%);
+  }
+  [data-slot='button'][data-variant='default']:hover:not(:disabled) {
+    background: var(--blue-fill-hover);
+    box-shadow: 0 5px 16px rgb(0 84 180 / 22%);
+  }
+  [data-slot='button'][data-variant='outline'] {
+    background: rgb(255 255 255 / 82%);
+    border-color: var(--line-strong);
+    color: var(--ink);
+  }
+  [data-slot='button'][data-variant='outline']:hover:not(:disabled) {
+    background: #fff;
+    border-color: var(--blue);
+    color: var(--blue-strong);
+  }
+  [data-slot='button'][data-variant='secondary'] {
+    background: var(--secondary);
+    color: var(--ink);
+  }
+  [data-slot='button'][data-variant='secondary']:hover:not(:disabled) {
+    background: #d9dce4;
+  }
+  [data-slot='button'][data-variant='ghost'] {
+    background: transparent;
+    color: var(--muted);
+  }
+  [data-slot='button'][data-variant='ghost']:hover:not(:disabled) {
+    background: rgb(60 60 67 / 9%);
+    color: var(--ink);
+  }
+  [data-slot='button'][data-variant='destructive'] {
+    background: var(--danger-soft);
+    color: var(--danger);
+  }
+  [data-slot='button'][data-variant='destructive']:hover:not(:disabled) {
+    background: rgb(197 42 55 / 18%);
+  }
+  [data-slot='button'][data-variant='link'] {
+    background: transparent;
+    color: var(--blue-strong);
+    height: auto;
+    padding: 0;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+  [data-slot='button'][data-size='sm'] {
+    height: 38px;
+    padding: 0 14px;
+    font-size: 13px;
+  }
+  [data-slot='button'][data-size='lg'] {
+    height: 48px;
+    padding: 0 20px;
+    font-size: 16px;
+  }
+  [data-slot='button'][data-size='icon'],
+  [data-slot='button'][data-size='icon-sm'] {
+    height: 36px;
+    width: 36px;
+    padding: 0;
+  }
+  [data-slot='button'] svg {
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+  }
+
+  /* --- Card --- */
+  [data-slot='card'] {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    border-radius: var(--radius-card);
+    border: 1px solid rgb(255 255 255 / 90%);
+    background: var(--surface);
+    box-shadow: var(--shadow-card);
+    padding: 16px 0;
+    color: var(--ink);
+    font-size: 14px;
+  }
+  [data-slot='card-header'] {
+    display: grid;
+    gap: 4px;
+    padding: 0 16px;
+  }
+  [data-slot='card-title'] {
+    font-weight: 700;
+    font-size: 16px;
+    color: var(--ink);
+  }
+  [data-slot='card-description'] {
+    font-size: 13px;
+    color: var(--muted);
+  }
+  [data-slot='card-content'] {
+    padding: 0 16px;
+  }
+  [data-slot='card-footer'] {
+    display: flex;
+    align-items: center;
+    padding: 12px 16px 0;
+    border-top: 1px solid var(--line);
+  }
+
+  /* --- Badge / status pill --- */
+  [data-slot='badge'] {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    height: auto;
+    border-radius: var(--radius-pill);
+    padding: 4px 10px;
+    font-size: 12px;
+    font-weight: 750;
+    white-space: nowrap;
+  }
+  [data-slot='badge'][data-variant='default'] {
+    background: var(--good-soft);
+    color: var(--good);
+  }
+  [data-slot='badge'][data-variant='secondary'] {
+    background: var(--secondary);
+    color: var(--muted);
+  }
+  [data-slot='badge'][data-variant='destructive'] {
+    background: var(--danger-soft);
+    color: var(--danger);
+  }
+  [data-slot='badge'][data-variant='outline'] {
+    background: transparent;
+    border: 1px solid var(--line-strong);
+    color: var(--muted);
+  }
+
+  /* --- Field 系（Input / Textarea / Select trigger） --- */
+  [data-slot='input'],
+  [data-slot='textarea'],
+  [data-slot='select-trigger'] {
+    width: 100%;
+    min-height: 44px;
+    border: 1px solid var(--line-strong);
+    border-radius: var(--radius-control);
+    background: #fff;
+    color: var(--ink);
+    padding: 8px 12px;
+    font-size: 16px;
+    font-family: inherit;
+    transition: border-color var(--ease);
+  }
+  [data-slot='input']:hover,
+  [data-slot='textarea']:hover,
+  [data-slot='select-trigger']:hover {
+    border-color: rgb(60 60 67 / 45%);
+  }
+  [data-slot='input']::placeholder,
+  [data-slot='textarea']::placeholder {
+    color: var(--faint);
+  }
+  [data-slot='input']:disabled,
+  [data-slot='textarea']:disabled {
+    background: #f2f3f6;
+    color: var(--faint);
+    cursor: not-allowed;
+  }
+  [data-slot='textarea'] {
+    min-height: 88px;
+    resize: vertical;
+  }
+  [data-slot='select-trigger'] {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    cursor: pointer;
+  }
+  [data-slot='select-content'] {
+    z-index: 60;
+    min-width: 10rem;
+    max-height: var(--radix-select-content-available-height, 320px);
+    overflow: hidden auto;
+    border-radius: var(--radius-control);
+    border: 1px solid var(--line);
+    background: #fff;
+    box-shadow: var(--shadow-raise);
+    padding: 4px;
+  }
+  [data-slot='select-viewport'] {
+    padding: 2px;
+  }
+  [data-slot='select-item'] {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    border-radius: 8px;
+    padding: 9px 10px 9px 28px;
+    font-size: 14px;
+    color: var(--ink);
+    cursor: pointer;
+    outline: none;
+  }
+  [data-slot='select-item'][data-highlighted] {
+    background: var(--blue-soft);
+    color: var(--blue-strong);
+  }
+  [data-slot='label'] {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 14px;
+    font-weight: 700;
+    color: #414148;
+  }
+
+  /* --- Checkbox --- */
+  [data-slot='checkbox'] {
+    width: 20px;
+    height: 20px;
+    flex-shrink: 0;
+    border: 1px solid var(--line-strong);
+    border-radius: 5px;
+    background: #fff;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+  }
+  [data-slot='checkbox'][data-state='checked'] {
+    background: var(--blue);
+    border-color: var(--blue);
+    color: #fff;
+  }
+  [data-slot='checkbox-indicator'] svg {
+    width: 13px;
+    height: 13px;
+  }
+
+  /* --- Table --- */
+  [data-slot='table-container'] {
+    position: relative;
+    width: 100%;
+    overflow-x: auto;
+  }
+  [data-slot='table'] {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+  [data-slot='table-head'] {
+    height: 40px;
+    padding: 0 10px;
+    text-align: left;
+    font-weight: 750;
+    font-size: 11px;
+    letter-spacing: 0.04em;
+    color: var(--faint);
+    background: rgb(60 60 67 / 4%);
+    white-space: nowrap;
+  }
+  [data-slot='table-cell'] {
+    padding: 12px 10px;
+    vertical-align: middle;
+    border-bottom: 1px solid var(--line);
+  }
+  [data-slot='table-row']:hover [data-slot='table-cell'] {
+    background: var(--blue-soft);
+  }
+
+  /* .data-table: 760px以下では各行をラベル付きカードに変形する（10 §10.5.8） */
+  @media (max-width: 760px) {
+    .data-table[data-slot='table-container'] {
+      overflow: visible;
+    }
+    .data-table [data-slot='table'],
+    .data-table [data-slot='table'] tbody {
+      display: block;
+      width: 100%;
+    }
+    .data-table [data-slot='table-header'] {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      clip: rect(0 0 0 0);
+    }
+    .data-table [data-slot='table-body'] {
+      display: grid;
+      gap: 10px;
+    }
+    .data-table [data-slot='table-row'] {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      gap: 10px 14px;
+      padding: 14px;
+      border: 1px solid var(--line);
+      border-radius: 13px;
+      background: var(--raised);
+    }
+    .data-table [data-slot='table-cell'] {
+      display: grid;
+      padding: 0;
+      border: 0;
+      text-align: left;
+    }
+    .data-table [data-slot='table-cell']::before {
+      content: attr(data-label);
+      margin-bottom: 3px;
+      color: var(--faint);
+      font-size: 10px;
+      font-weight: 750;
+      letter-spacing: 0.04em;
+    }
+    .data-table [data-slot='table-cell'][data-span-all] {
+      grid-column: 1 / -1;
+    }
+  }
+
+  /* --- Dialog / AlertDialog（confirm-dialog として使う） --- */
+  [data-slot='dialog-overlay'],
+  [data-slot='alert-dialog-overlay'] {
+    position: fixed;
+    inset: 0;
+    z-index: 1200;
+    background: rgb(24 24 28 / 32%);
+    backdrop-filter: blur(10px) saturate(150%);
+  }
+  [data-slot='dialog-content'],
+  [data-slot='alert-dialog-content'] {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    z-index: 1201;
+    transform: translate(-50%, -50%);
+    width: min(420px, calc(100% - 32px));
+    display: grid;
+    gap: 16px;
+    border-radius: 18px;
+    background: #fff;
+    padding: 22px;
+    box-shadow: 0 28px 78px rgb(0 0 0 / 25%);
+  }
+  [data-slot='dialog-title'],
+  [data-slot='alert-dialog-title'] {
+    font-size: 17px;
+    font-weight: 750;
+    color: var(--ink);
+  }
+  [data-slot='dialog-description'],
+  [data-slot='alert-dialog-description'] {
+    font-size: 14px;
+    color: var(--muted);
+    line-height: 1.6;
+  }
+  [data-slot='dialog-footer'],
+  [data-slot='alert-dialog-footer'] {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+  }
+
+  /* --- Tabs（現状未使用だが将来のため用意） --- */
+  [data-slot='tabs-list'] {
+    display: flex;
+    gap: 4px;
+    border-bottom: 1px solid var(--line);
+  }
+  [data-slot='tabs-trigger'] {
+    border: 0;
+    border-bottom: 2px solid transparent;
+    background: transparent;
+    color: var(--muted);
+    padding: 8px 14px;
+    font-weight: 700;
+    font-size: 13px;
+    cursor: pointer;
+  }
+  [data-slot='tabs-trigger'][data-state='active'] {
+    border-bottom-color: var(--blue);
+    color: var(--blue-strong);
+  }
+
+  /* --- Skeleton --- */
+  [data-slot='skeleton'] {
+    border-radius: 8px;
+    background: var(--secondary);
+    animation: skeleton-pulse 1.6s ease-in-out infinite;
+  }
+  @keyframes skeleton-pulse {
+    0%,
+    100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.5;
+    }
+  }
+
+  /* --- Separator --- */
+  [data-slot='separator'] {
+    background: var(--line);
+  }
+
+  /* --- Toast (sonner) --- */
+  .cn-toast {
+    border-radius: var(--radius-control) !important;
+    border: 1px solid var(--line) !important;
+    background: #fff !important;
+    color: var(--ink) !important;
+    box-shadow: var(--shadow-raise) !important;
+    font-family: inherit !important;
+  }
+  .cn-toast-ico {
+    width: 18px;
+    height: 18px;
+  }
+  .cn-toast-ico.tone-good {
+    color: var(--good);
+  }
+  .cn-toast-ico.tone-info {
+    color: var(--blue-strong);
+  }
+  .cn-toast-ico.tone-warn {
+    color: var(--warning);
+  }
+  .cn-toast-ico.tone-danger {
+    color: var(--danger);
+  }
+
+  /* ============================================================
+   新規の意味部品（10 §10.5）
+   ============================================================ */
+
+  /* .btn: Button コンポーネントを使わない場所（choice-card 内など）向けの
+   最小限のボタンクラス。 */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-height: 44px;
+    border: 1px solid transparent;
+    border-radius: var(--radius-control);
+    padding: 0 18px;
+    font-weight: 700;
+    font-size: 15px;
+    font-family: inherit;
+    cursor: pointer;
+    transition:
+      background-color var(--ease),
+      box-shadow var(--ease),
+      transform 100ms ease-out;
+  }
+  .btn:active:not(:disabled) {
+    transform: scale(0.97);
+  }
+  .btn:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+  }
+  .btn--primary {
+    background: var(--blue-fill);
+    color: #fff;
+    box-shadow: 0 1px 2px rgb(0 84 180 / 20%);
+  }
+  .btn--primary:hover:not(:disabled) {
+    background: var(--blue-fill-hover);
+  }
+  .btn--ghost {
+    background: transparent;
+    color: var(--muted);
+    border-color: var(--line-strong);
+  }
+  .btn--ghost:hover:not(:disabled) {
+    background: rgb(60 60 67 / 8%);
+    color: var(--ink);
+  }
+  .btn--block {
+    display: flex;
+    width: 100%;
+    min-height: 56px;
+    font-size: 18px;
+  }
+
+  /* .status-pill: 状態はアイコン＋文字＋色の3点で示す（U1） */
+  .status-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    border-radius: var(--radius-pill);
+    padding: 6px 12px;
+    font-weight: 750;
+    font-size: 14px;
+    line-height: 1;
+  }
+  .status-pill .ico {
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
+  }
+  .status-pill--good {
+    background: var(--good-soft);
+    color: var(--good);
+  }
+  .status-pill--warn {
+    background: var(--warning-soft);
+    color: var(--warning);
+  }
+  .status-pill--info {
+    background: var(--blue-soft);
+    color: var(--blue-strong);
+  }
+  .status-pill--danger {
+    background: var(--danger-soft);
+    color: var(--danger);
+  }
+  .status-pill--muted {
+    background: rgb(60 60 67 / 8%);
+    color: var(--muted);
+  }
+
+  /* .state-hero: 契約者ホームの主状態カード（今の状態を1つだけ大きく） */
+  .state-hero {
+    position: relative;
+    display: grid;
+    gap: 14px;
+    border-radius: 20px;
+    border: 1px solid rgb(255 255 255 / 90%);
+    background: var(--surface);
+    box-shadow: var(--shadow-card);
+    padding: 28px 24px;
+  }
+  .state-hero--overdue {
+    border-left: 4px solid var(--danger);
+    padding-left: 20px;
+  }
+  .state-hero .amount {
+    font-size: 44px;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    font-variant-numeric: tabular-nums;
+    color: var(--ink);
+  }
+  .state-hero .due {
+    color: var(--muted);
+    font-size: 16px;
+  }
+  .state-hero .actions {
+    display: grid;
+    gap: 10px;
+    margin-top: 4px;
+  }
+
+  /* .choice-card: 大きなラジオ（支払う月・支払い方法の選択） */
+  .choice-card {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    min-height: 64px;
+    border: 1px solid var(--line-strong);
+    border-radius: 14px;
+    background: #fff;
+    padding: 14px 16px;
+    cursor: pointer;
+    transition:
+      border-color var(--ease),
+      background-color var(--ease);
+  }
+  .choice-card:has(:checked) {
+    border-color: var(--blue);
+    background: var(--blue-soft);
+  }
+  .choice-card input[type='radio'] {
+    width: 22px;
+    height: 22px;
+    accent-color: var(--blue);
+    flex-shrink: 0;
+  }
+  .choice-card .choice-card-body {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+    min-width: 0;
+    flex: 1 1 auto;
+  }
+  .choice-card .title {
+    font-size: 18px;
+    font-weight: 700;
+    line-height: 1.4;
+    color: var(--ink);
+  }
+  .choice-card .sub {
+    display: inline-flex;
+    border-radius: var(--radius-pill);
+    background: var(--blue-soft);
+    color: var(--blue-strong);
+    padding: 4px 10px;
+    font-size: 13px;
+    font-weight: 700;
+    line-height: 1.4;
+  }
+  .choice-card .amount {
+    margin-left: auto;
+    padding-left: 12px;
+    font-size: 18px;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+    color: var(--ink);
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  /* .range-picker: 複数の選択肢を1つの枠にまとめ、選んだ結果の子設定を
+   その選択肢の内側（インデント）に出す（12-review-followups.md §12.4）。
+   .choice-card（独立した複数カードが並ぶ形）とは意図的に見た目を変え、
+   「1つの範囲を選ぶ」ことが視覚的にも伝わるようにする。 */
+  .range-picker {
+    margin: 0;
+    padding: 0;
+    min-width: 0;
+    border: 1px solid var(--line-strong);
+    border-radius: 14px;
+    background: #fff;
+    overflow: hidden;
+  }
+  .range-picker-row {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    min-height: 64px;
+    padding: 14px 16px;
+    cursor: pointer;
+    transition: background-color var(--ease);
+  }
+  .range-picker-row:first-child {
+    border-bottom: 1px solid var(--line);
+  }
+  .range-picker-row:has(:checked) {
+    background: var(--blue-soft);
+  }
+  .range-picker-row input[type='radio'] {
+    width: 22px;
+    height: 22px;
+    accent-color: var(--blue);
+    flex-shrink: 0;
+  }
+  .range-picker-body {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+    flex: 1 1 auto;
+  }
+  .range-picker-body .title {
+    font-size: 18px;
+    font-weight: 700;
+    line-height: 1.4;
+    color: var(--ink);
+  }
+  .range-picker-body .sub {
+    font-size: 14px;
+    color: var(--muted);
+  }
+  .range-picker .amount {
+    margin-left: auto;
+    padding-left: 12px;
+    font-size: 18px;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+    color: var(--ink);
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  /* 選んだ選択肢（先払い）の一段下に、その設定（月数）をインデントして出す。
+   左のラジオの中心（16px + 11px）に揃えたインデント幅にする。 */
+  .range-picker-detail {
+    padding: 4px 16px 16px 52px;
+    background: rgb(10 132 255 / 4%);
+  }
+
+  /* .copy-row: 振込先などコピー可能な明細行 */
+  .copy-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    min-height: 48px;
+    padding: 6px 0;
+  }
+  .copy-row + .copy-row {
+    border-top: 1px solid var(--line);
+  }
+  .copy-row .value {
+    font-size: 16px;
+    color: var(--ink);
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* .history-item: 契約者の支払い履歴カード */
+  .history-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    padding: 16px;
+  }
+
+  /* .kpi-grid / .kpi: 管理ダッシュボードのKPI */
+  .kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+  }
+  @media (max-width: 900px) {
+    .kpi-grid {
+      grid-template-columns: repeat(2, 1fr);
+    }
+  }
+  .kpi {
+    border-radius: var(--radius-card);
+    border: 1px solid rgb(255 255 255 / 90%);
+    background: var(--surface);
+    box-shadow: var(--shadow-card);
+    padding: 16px 18px;
+  }
+  .kpi--alert {
+    border-left: 4px solid var(--danger);
+    padding-left: 14px;
+  }
+  .kpi .label {
+    color: var(--faint);
+    font-size: 11px;
+    font-weight: 750;
+    letter-spacing: 0.04em;
+  }
+  .kpi strong {
+    display: block;
+    margin-top: 6px;
+    font-size: 26px;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    color: var(--ink);
+    font-variant-numeric: tabular-nums;
+  }
+  .kpi strong.tone-warn {
+    color: var(--warning);
+  }
+  .kpi strong.tone-danger {
+    color: var(--danger);
+  }
+
+  /* .matrix: 入金マトリクス（行=契約者、列=月） */
+  .matrix-wrap {
+    overflow-x: auto;
+    border-radius: var(--radius-card);
+    border: 1px solid rgb(255 255 255 / 90%);
+    background: var(--surface);
+    box-shadow: var(--shadow-card);
+  }
+  .matrix {
+    width: 100%;
+    min-width: 640px;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+  .matrix th,
+  .matrix td {
+    padding: 10px 8px;
+    text-align: center;
+    border-bottom: 1px solid var(--line);
+  }
+  .matrix thead th {
+    color: var(--faint);
+    font-weight: 750;
+    font-size: 11px;
+    background: rgb(60 60 67 / 4%);
+  }
+  .matrix .matrix-name {
+    position: sticky;
+    left: 0;
+    z-index: 1;
+    background: var(--surface-solid);
+    text-align: left;
+    font-weight: 700;
+    color: var(--ink);
+    white-space: nowrap;
+  }
+  .matrix thead .matrix-name {
+    background: rgb(60 60 67 / 4%);
+  }
+  .matrix-cell {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border-radius: 9px;
+    border: 0;
+    background: transparent;
+    cursor: pointer;
+  }
+  .matrix-cell:hover {
+    background: var(--blue-soft);
+  }
+  .matrix-cell svg {
+    width: 20px;
+    height: 20px;
+  }
+  .matrix-cell--good svg {
+    color: var(--good);
+  }
+  .matrix-cell--warn svg {
+    color: var(--warning);
+  }
+  .matrix-cell--danger {
+    background: var(--danger-soft);
+  }
+  .matrix-cell--danger svg {
+    color: var(--danger);
+  }
+  .matrix-cell--muted svg {
+    color: var(--faint);
+  }
+
+  /* .matrix-legend: マトリクスのセルと同じグリフ＋色で、見た目が必ず一致する */
+  .matrix-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 14px;
+    margin-top: 8px;
+  }
+  .matrix-legend-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    color: var(--muted);
+    font-size: 12px;
+  }
+  .matrix-legend-item svg {
+    width: 15px;
+    height: 15px;
+    flex-shrink: 0;
+  }
+  .matrix-legend-item.tone-good svg {
+    color: var(--good);
+  }
+  .matrix-legend-item.tone-warn svg {
+    color: var(--warning);
+  }
+  .matrix-legend-item.tone-danger svg {
+    color: var(--danger);
+  }
+  .matrix-legend-item.tone-muted svg {
+    color: var(--faint);
+  }
+
+  /* .period-control: マトリクスの期間切り替え */
+  .period-control {
+    display: inline-flex;
+    gap: 3px;
+    border: 1px solid var(--line);
+    border-radius: 9px;
+    background: rgb(255 255 255 / 55%);
+    padding: 3px;
+  }
+  .period-control a {
+    display: inline-flex;
+    align-items: center;
+    min-height: 32px;
+    border-radius: 6px;
+    padding: 4px 10px;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--muted);
+    text-decoration: none;
+  }
+  .period-control a.active {
+    background: #fff;
+    color: var(--blue-strong);
+    box-shadow: 0 1px 3px rgb(0 0 0 / 9%);
+  }
+
+  /* .field-note: フォームの補足テキスト */
+  .field-note {
+    color: var(--muted);
+    font-size: 13px;
+    line-height: 1.6;
+  }
+
+  /* .notice: 情報・エラーの帯 */
+  .notice {
+    border-radius: var(--radius-control);
+    padding: 12px 14px;
+    font-size: 14px;
+    line-height: 1.6;
+  }
+  .notice--danger {
+    background: var(--danger-soft);
+    color: var(--danger);
+  }
+  .notice--warn {
+    background: var(--warning-soft);
+    color: var(--warning);
+  }
+  .notice--info {
+    background: var(--blue-soft);
+    color: #0057aa;
+  }
+} /* @layer components */

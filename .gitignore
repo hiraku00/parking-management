@@ -57,3 +57,6 @@ next-env.d.ts
 
 # Claude Code（ローカルのdevサーバー起動設定など、開発者ごとの一時ファイル）
 .claude/
+
+# MulmoTerminal（このリポジトリとは無関係な、ターミナルアプリ側の作業ファイル）
+/data/

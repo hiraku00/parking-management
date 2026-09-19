@@ -151,6 +151,12 @@ export const approveTransferSchema = z.object({
   paymentId: z.string().min(1),
 })
 
+export const refundPaymentSchema = z.object({
+  paymentId: z.string().min(1),
+  reason: z.string().trim().min(1, '返金の理由を入力してください').max(500),
+  refundMethod: z.enum(['card', 'bank_transfer', 'cash']),
+})
+
 export const recordManualPaymentSchema = z.object({
   contractorId: z.string().min(1),
   invoiceIds: z.array(z.string().min(1)).min(1, '対象の請求を選んでください'),

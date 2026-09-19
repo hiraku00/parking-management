@@ -8,7 +8,7 @@ erDiagram
   contractors ||--o{ payments : "入金"
   payments ||--|{ payment_allocations : "配分"
   invoices ||--o{ payment_allocations : "消込"
-  payments ||--o| receipts : "領収書"
+  payments ||--o{ receipts : "領収書・返還請求書"
   settings ||..|| receipts : "発行時にスナップショット"
   audit_logs }o..|| contractors : "entity"
   stripe_events }o..o| payments : "payment_id"
@@ -116,7 +116,14 @@ export const invoices = sqliteTable(
 
 // ─── 入金 ─────────────────────────────────────────────────
 export const PAYMENT_METHODS = ['card', 'bank_transfer', 'cash', 'other'] as const
-export const PAYMENT_STATUSES = ['pending', 'succeeded', 'failed', 'canceled', 'rejected'] as const
+export const PAYMENT_STATUSES = [
+  'pending',
+  'succeeded',
+  'failed',
+  'canceled',
+  'rejected',
+  'refunded',
+] as const
 
 export const payments = sqliteTable(
   'payments',
@@ -133,6 +140,7 @@ export const payments = sqliteTable(
     stripeCheckoutSessionId: text('stripe_checkout_session_id'),
     stripePaymentIntentId: text('stripe_payment_intent_id'),
     stripePaymentMethodType: text('stripe_payment_method_type'), // card / konbini / paypay …
+    stripeRefundId: text('stripe_refund_id'),
     // 振込・現金
     payerName: text('payer_name'), // 振込名義
     paidOn: text('paid_on'), // 振込日・受領日（YYYY-MM-DD、JST）
@@ -142,6 +150,11 @@ export const payments = sqliteTable(
     reviewedAt: ts('reviewed_at'),
     rejectReason: text('reject_reason'),
     succeededAt: ts('succeeded_at'),
+    // 返金（succeededからのみ遷移。全額返金のみ、部分返金は対象外）
+    refundedAt: ts('refunded_at'),
+    refundedBy: text('refunded_by'), // オーナーのメール
+    refundReason: text('refund_reason'),
+    refundMethod: text('refund_method', { enum: ['card', 'bank_transfer', 'cash'] }),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
@@ -151,7 +164,14 @@ export const payments = sqliteTable(
     index('payments_status_idx').on(t.status),
     check('payments_amount_chk', sql`amount > 0`),
     check('payments_method_chk', sql`method IN ('card','bank_transfer','cash','other')`),
-    check('payments_status_chk', sql`status IN ('pending','succeeded','failed','canceled','rejected')`),
+    check(
+      'payments_status_chk',
+      sql`status IN ('pending','succeeded','failed','canceled','rejected','refunded')`,
+    ),
+    check(
+      'payments_refund_method_chk',
+      sql`refund_method IS NULL OR refund_method IN ('card','bank_transfer','cash')`,
+    ),
   ],
 )
 
@@ -180,12 +200,17 @@ export const payment_allocations = sqliteTable(
   ],
 )
 
-// ─── 領収書（入金1件につき1枚、発行時の情報を保存）───────
+// ─── 領収書（入金1件につき、kindごとに1枚。発行時の情報を保存）───
+// kind: 'receipt'=通常の領収書 / 'credit_note'=返金時の適格返還請求書。
+// 返金した入金は領収書1枚＋返還請求書1枚を持てる（`receipts_payment_kind_uq`）。
+export const RECEIPT_KINDS = ['receipt', 'credit_note'] as const
+
 export const receipts = sqliteTable(
   'receipts',
   {
     id: id(),
-    receiptNo: integer('receipt_no').notNull(), // 連番（1, 2, 3…）
+    receiptNo: integer('receipt_no').notNull(), // 連番（1, 2, 3…。領収書・返還請求書で共通の通し番号）
+    kind: text('kind', { enum: RECEIPT_KINDS }).notNull().default('receipt'),
     paymentId: text('payment_id')
       .notNull()
       .references(() => payments.id),
@@ -200,7 +225,11 @@ export const receipts = sqliteTable(
     issuer: text('issuer', { mode: 'json' }).notNull().$type<IssuerSnapshot>(),
     createdAt: createdAt(),
   },
-  (t) => [uniqueIndex('receipts_no_uq').on(t.receiptNo), uniqueIndex('receipts_payment_uq').on(t.paymentId)],
+  (t) => [
+    uniqueIndex('receipts_no_uq').on(t.receiptNo),
+    uniqueIndex('receipts_payment_kind_uq').on(t.paymentId, t.kind),
+    check('receipts_kind_chk', sql`kind IN ('receipt','credit_note')`),
+  ],
 )
 
 export type IssuerSnapshot = {
@@ -277,7 +306,9 @@ export const stripe_events = sqliteTable('stripe_events', {
 2. 配分の `state` は入金の `status` と対応する（pending→pending、succeeded→applied、それ以外→released）
 3. 請求の `status='paid'` ⇔ 消込済み額 ≥ `amount`
 4. 1つの請求を確保できる pending の入金は1件まで（部分UNIQUE索引）
-5. 領収書は `status='succeeded'` の入金にだけ、1件ずつ存在する
+5. 領収書（`kind='receipt'`）は `status='succeeded'` または `'refunded'`（返金前にsucceededだった）
+   の入金にだけ、1件存在する。返還請求書（`kind='credit_note'`）は `status='refunded'` の
+   入金にだけ、1件存在する（発行済みの領収書は返金後も残す。物理削除しない）
 6. `void` の請求には `applied` の配分が無い
 
 ## 4.5 状態遷移
@@ -292,11 +323,17 @@ stateDiagram-v2
   pending --> failed: Stripeの非同期決済が失敗（コンビニ払いの期限切れなど）
   pending --> canceled: Checkoutの期限切れ・キャンセル
   pending --> rejected: オーナーが振込報告を却下
+  succeeded --> refunded: オーナーが返金（refundPayment）
   succeeded --> [*]
+  refunded --> [*]
 ```
 
 succeeded になるとき、同じbatchで次の3つを行う。配分を `applied` にする → 対象の請求の `status` を再計算する → 領収書を発行する。
 failed / canceled / rejected になるときは、配分を `released` にする（請求が再び支払える状態に戻る）。
+refunded になるとき（`refundPayment`）も同様に配分を `released` にし、請求を再計算する（`paid → open`）。
+カード決済は同じbatchでStripeへ実際に返金し、現金・振込は記録のみ行う。全額返金のみ対応
+（部分返金は対象外）。入金は物理削除せず、適格返還請求書（`receipts.kind='credit_note'`）を
+1枚発行する。参照: docs/design/06-billing-payments.md §6.9, docs/design/12-review-followups.md §12.2
 
 ### 請求（invoices.status）
 
@@ -305,7 +342,7 @@ stateDiagram-v2
   [*] --> open: syncInvoices
   open --> paid: 消込済み額が請求額以上になった
   open --> void: 免除 / 契約期間の短縮
-  paid --> open: （v1では起きない。返金に対応するときに使う）
+  paid --> open: 消込済み額が請求額を下回った（返金など）
 ```
 
 ## 4.6 よく使うクエリ（抜粋）

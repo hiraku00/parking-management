@@ -72,7 +72,7 @@ export default async function ContractorDetailPage({ params }: { params: Promise
       </div>
 
       {sameKanaContractors.length > 0 && (
-        <div className="rounded-md border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">
+        <div className="notice notice--warn">
           同じフリガナの契約者がいます（
           {sameKanaContractors.map((c) => c.name).join('、')}
           ）。フリガナでの予備ログインは、同じ読みの人が複数いると失敗するため、必要であれば区別できる表記にしてください。
@@ -111,7 +111,7 @@ export default async function ContractorDetailPage({ params }: { params: Promise
           )}
         </CardHeader>
         <CardContent className="p-0">
-          <Table>
+          <Table className="data-table">
             <TableHeader>
               <TableRow>
                 <TableHead>対象月</TableHead>
@@ -124,13 +124,15 @@ export default async function ContractorDetailPage({ params }: { params: Promise
             <TableBody>
               {invoiceRows.map((inv) => (
                 <TableRow key={inv.id}>
-                  <TableCell>{formatMonthJa(inv.month as YearMonth)}</TableCell>
-                  <TableCell>{formatYen(inv.amount)}</TableCell>
-                  <TableCell>{formatYen(appliedByInvoice.get(inv.id) ?? 0)}</TableCell>
-                  <TableCell>
+                  <TableCell data-label="対象月">{formatMonthJa(inv.month as YearMonth)}</TableCell>
+                  <TableCell data-label="金額">{formatYen(inv.amount)}</TableCell>
+                  <TableCell data-label="入金済み額">
+                    {formatYen(appliedByInvoice.get(inv.id) ?? 0)}
+                  </TableCell>
+                  <TableCell data-label="状態">
                     <Badge variant={STATUS_VARIANT[inv.status]}>{STATUS_LABEL[inv.status]}</Badge>
                   </TableCell>
-                  <TableCell>
+                  <TableCell data-label="操作" data-span-all>
                     {inv.status === 'open' && (
                       <VoidInvoiceForm
                         invoiceId={inv.id}

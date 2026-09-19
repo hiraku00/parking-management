@@ -103,7 +103,14 @@ export const invoices = sqliteTable(
 
 // ─── 入金 ─────────────────────────────────────────────────
 export const PAYMENT_METHODS = ['card', 'bank_transfer', 'cash', 'other'] as const
-export const PAYMENT_STATUSES = ['pending', 'succeeded', 'failed', 'canceled', 'rejected'] as const
+export const PAYMENT_STATUSES = [
+  'pending',
+  'succeeded',
+  'failed',
+  'canceled',
+  'rejected',
+  'refunded',
+] as const
 
 export const payments = sqliteTable(
   'payments',
@@ -120,6 +127,7 @@ export const payments = sqliteTable(
     stripeCheckoutSessionId: text('stripe_checkout_session_id'),
     stripePaymentIntentId: text('stripe_payment_intent_id'),
     stripePaymentMethodType: text('stripe_payment_method_type'), // card / konbini / paypay …
+    stripeRefundId: text('stripe_refund_id'),
     // 振込・現金
     payerName: text('payer_name'), // 振込名義
     paidOn: text('paid_on'), // 振込日・受領日（YYYY-MM-DD、JST）
@@ -129,6 +137,11 @@ export const payments = sqliteTable(
     reviewedAt: ts('reviewed_at'),
     rejectReason: text('reject_reason'),
     succeededAt: ts('succeeded_at'),
+    // 返金（succeeded からのみ遷移。docs/design/12-review-followups.md §12.2）
+    refundedAt: ts('refunded_at'),
+    refundedBy: text('refunded_by'), // オーナーのメール
+    refundReason: text('refund_reason'),
+    refundMethod: text('refund_method', { enum: ['card', 'bank_transfer', 'cash'] }),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
@@ -138,7 +151,14 @@ export const payments = sqliteTable(
     index('payments_status_idx').on(t.status),
     check('payments_amount_chk', sql`amount > 0`),
     check('payments_method_chk', sql`method IN ('card','bank_transfer','cash','other')`),
-    check('payments_status_chk', sql`status IN ('pending','succeeded','failed','canceled','rejected')`),
+    check(
+      'payments_status_chk',
+      sql`status IN ('pending','succeeded','failed','canceled','rejected','refunded')`,
+    ),
+    check(
+      'payments_refund_method_chk',
+      sql`refund_method IS NULL OR refund_method IN ('card','bank_transfer','cash')`,
+    ),
   ],
 )
 
@@ -175,11 +195,16 @@ export type IssuerSnapshot = {
   registrationNumber: string | null
 }
 
+// 'receipt' = 通常の領収書 / 'credit_note' = 返金時の適格返還請求書。
+// 入金1件につき、各kindは1枚まで（返金した入金は領収書1枚＋返還請求書1枚を持てる）。
+export const RECEIPT_KINDS = ['receipt', 'credit_note'] as const
+
 export const receipts = sqliteTable(
   'receipts',
   {
     id: id(),
-    receiptNo: integer('receipt_no').notNull(), // 連番（1, 2, 3…）
+    receiptNo: integer('receipt_no').notNull(), // 連番（1, 2, 3…。領収書・返還請求書で共通の通し番号）
+    kind: text('kind', { enum: RECEIPT_KINDS }).notNull().default('receipt'),
     paymentId: text('payment_id')
       .notNull()
       .references(() => payments.id),
@@ -194,7 +219,11 @@ export const receipts = sqliteTable(
     issuer: text('issuer', { mode: 'json' }).notNull().$type<IssuerSnapshot>(),
     createdAt: createdAt(),
   },
-  (t) => [uniqueIndex('receipts_no_uq').on(t.receiptNo), uniqueIndex('receipts_payment_uq').on(t.paymentId)],
+  (t) => [
+    uniqueIndex('receipts_no_uq').on(t.receiptNo),
+    uniqueIndex('receipts_payment_kind_uq').on(t.paymentId, t.kind),
+    check('receipts_kind_chk', sql`kind IN ('receipt','credit_note')`),
+  ],
 )
 
 // ─── 設定（1行だけ）──────────────────────────────────────

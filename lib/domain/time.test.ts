@@ -6,6 +6,7 @@ import {
   formatDateJa,
   formatDueDateJa,
   formatMonthJa,
+  formatMonthRangeJa,
   isPastDue,
   isValidIsoDate,
   isValidYearMonth,
@@ -118,6 +119,22 @@ describe('formatMonthJa', () => {
     expect(formatMonthJa('2026-01')).toBe('2026年1月')
     expect(formatMonthJa('2026-09')).toBe('2026年9月')
     expect(formatMonthJa('2026-12')).toBe('2026年12月')
+  })
+})
+
+describe('formatMonthRangeJa', () => {
+  it('1件はformatMonthJaと同じ', () => {
+    expect(formatMonthRangeJa(['2026-07'])).toBe('2026年7月')
+  })
+  it('2件は「と」で列挙する', () => {
+    expect(formatMonthRangeJa(['2026-07', '2026-08'])).toBe('2026年7月と2026年8月')
+  })
+  it('3件以上・同じ年は範囲表記にする', () => {
+    expect(formatMonthRangeJa(['2026-07', '2026-08', '2026-09'])).toBe('2026年7月〜9月')
+    expect(formatMonthRangeJa(['2026-07', '2026-08', '2026-09', '2026-10'])).toBe('2026年7月〜10月')
+  })
+  it('年をまたぐ場合は両方に年を出す', () => {
+    expect(formatMonthRangeJa(['2026-11', '2026-12', '2027-01'])).toBe('2026年11月〜2027年1月')
   })
 })
 
