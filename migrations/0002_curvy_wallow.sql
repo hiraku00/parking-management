@@ -1,5 +1,14 @@
-PRAGMA foreign_keys=OFF;--> statement-breakpoint
-CREATE TABLE `__new_payments` (
+-- D1 は `PRAGMA foreign_keys=OFF` が効かない（マイグレーションがトランザクション内で
+-- 実行されるため）。`payments` を DROP すると、子テーブル（payment_allocations /
+-- receipts）に行がある本番では外部キー違反になる（Deploy #30・#31 の失敗原因）。
+-- そこで `defer_foreign_keys` で違反の検査をコミット時まで遅らせ、旧テーブルを DROP した
+-- 後に「同じ名前の」テーブルへ行を入れ直して、違反を解消してからコミットする。
+-- `__new_*` を RENAME する方式だと、入れ直し先の名前が違うため違反が解消されず失敗する。
+-- この設定はコミット（またはロールバック）で自動的に元に戻る。
+PRAGMA defer_foreign_keys=on;--> statement-breakpoint
+CREATE TABLE `__backup_payments` AS SELECT "id", "contractor_id", "method", "channel", "status", "amount", "stripe_checkout_session_id", "stripe_payment_intent_id", "stripe_payment_method_type", "payer_name", "paid_on", "note", "reviewed_by", "reviewed_at", "reject_reason", "succeeded_at", "created_at", "updated_at" FROM `payments`;--> statement-breakpoint
+DROP TABLE `payments`;--> statement-breakpoint
+CREATE TABLE `payments` (
 	`id` text PRIMARY KEY NOT NULL,
 	`contractor_id` text NOT NULL,
 	`method` text NOT NULL,
@@ -34,12 +43,10 @@ CREATE TABLE `__new_payments` (
 -- 存在しない列名としてSELECT側にも書いていた。SQLiteはダブルクォートで
 -- 囲んだ識別子が列名として解決できないとき、警告なく文字列リテラルとして
 -- 扱ってしまう既知の癖があり（例: "refund_method" → 文字列 'refund_method'）、
--- そのままではCHECK制約違反やゴミ値の混入を招く。新規列はSELECT側から外し、
+-- そのままではCHECK制約違反やゴミ値の混入を招く。新規列は退避するSELECT側から外し、
 -- INSERT対象の列リストからも省略することで、正しくNULL（またはDEFAULT）が入るようにする。
-INSERT INTO `__new_payments`("id", "contractor_id", "method", "channel", "status", "amount", "stripe_checkout_session_id", "stripe_payment_intent_id", "stripe_payment_method_type", "payer_name", "paid_on", "note", "reviewed_by", "reviewed_at", "reject_reason", "succeeded_at", "created_at", "updated_at") SELECT "id", "contractor_id", "method", "channel", "status", "amount", "stripe_checkout_session_id", "stripe_payment_intent_id", "stripe_payment_method_type", "payer_name", "paid_on", "note", "reviewed_by", "reviewed_at", "reject_reason", "succeeded_at", "created_at", "updated_at" FROM `payments`;--> statement-breakpoint
-DROP TABLE `payments`;--> statement-breakpoint
-ALTER TABLE `__new_payments` RENAME TO `payments`;--> statement-breakpoint
-PRAGMA foreign_keys=ON;--> statement-breakpoint
+INSERT INTO `payments`("id", "contractor_id", "method", "channel", "status", "amount", "stripe_checkout_session_id", "stripe_payment_intent_id", "stripe_payment_method_type", "payer_name", "paid_on", "note", "reviewed_by", "reviewed_at", "reject_reason", "succeeded_at", "created_at", "updated_at") SELECT "id", "contractor_id", "method", "channel", "status", "amount", "stripe_checkout_session_id", "stripe_payment_intent_id", "stripe_payment_method_type", "payer_name", "paid_on", "note", "reviewed_by", "reviewed_at", "reject_reason", "succeeded_at", "created_at", "updated_at" FROM `__backup_payments`;--> statement-breakpoint
+DROP TABLE `__backup_payments`;--> statement-breakpoint
 CREATE UNIQUE INDEX `payments_checkout_session_uq` ON `payments` (`stripe_checkout_session_id`);--> statement-breakpoint
 CREATE INDEX `payments_contractor_created_idx` ON `payments` (`contractor_id`,`created_at`);--> statement-breakpoint
 CREATE INDEX `payments_status_idx` ON `payments` (`status`);--> statement-breakpoint

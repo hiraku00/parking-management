@@ -27,14 +27,25 @@ function statements(sql: string): string[] {
     .filter(Boolean)
 }
 
+/** migrations の先頭から `from` 番目以上 `to` 番目未満（0始まり）を順に適用する。
+ *  「既存データがある状態へ新しいマイグレーションを当てる」検証で、途中の
+ *  スキーマにデータを入れてから残りを適用するために使う。 */
+export async function applyMigrations(
+  db: D1Database,
+  from: number,
+  to: number = MIGRATIONS.length,
+): Promise<void> {
+  for (const sql of MIGRATIONS.slice(from, to)) {
+    const stmts = statements(sql)
+    await db.batch(stmts.map((s) => db.prepare(s)) as [D1PreparedStatement, ...D1PreparedStatement[]])
+  }
+}
+
 /** テストファイルの最初に1回だけ呼ぶ。D1のストレージはテストファイル単位で
  *  分離されるが、同じファイル内の複数の it() の間では共有されるため、
  *  スキーマの作成は1回だけにし、行の削除は resetData() で行う。 */
 export async function migrate(db: D1Database): Promise<void> {
-  for (const sql of MIGRATIONS) {
-    const stmts = statements(sql)
-    await db.batch(stmts.map((s) => db.prepare(s)) as [D1PreparedStatement, ...D1PreparedStatement[]])
-  }
+  await applyMigrations(db, 0)
 }
 
 /** 同じファイル内の各テストの前に呼び、前のテストのデータを空にする。
