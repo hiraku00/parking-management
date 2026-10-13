@@ -18,6 +18,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     environment: production
+    permissions:
+      contents: read
+      # 失敗・復旧を Issue で知らせる（scripts/deploy-alert.sh）
+      issues: write
     steps:
       - name: Check production secrets are configured
         # Phase 6（本番構築）でCLOUDFLARE_API_TOKEN等をproduction Environmentの
@@ -84,3 +88,22 @@ jobs:
       - name: Smoke test
         if: steps.check.outputs.skip != 'true'
         run: ./scripts/smoke.sh "${{ vars.PRODUCTION_URL }}"
+
+      # 失敗はGitHubの通知メールを見落としやすいため、Issueを起票して所有者にアサイン・
+      # メンションする。次のデプロイが成功すると自動で閉じる。コミットのタイトルは
+      # 式展開ではなく環境変数で渡す（コミットメッセージ経由のコマンド注入を避けるため）。
+      - name: Open an issue when the deploy fails
+        if: failure()
+        run: ./scripts/deploy-alert.sh failure
+        env:
+          GH_TOKEN: ${{ github.token }}
+          COMMIT_SHA: ${{ github.sha }}
+          COMMIT_TITLE: ${{ github.event.head_commit.message }}
+
+      - name: Close the failure issue when the deploy recovers
+        if: success() && steps.check.outputs.skip != 'true'
+        run: ./scripts/deploy-alert.sh success
+        env:
+          GH_TOKEN: ${{ github.token }}
+          COMMIT_SHA: ${{ github.sha }}
+          COMMIT_TITLE: ${{ github.event.head_commit.message }}
