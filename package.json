@@ -16,6 +16,7 @@
     "lint": "eslint .",
     "format": "prettier --check .",
     "format:write": "prettier --write .",
+    "security:check": "node scripts/security-check.mjs",
     "test": "vitest run",
     "test:integration": "vitest run --config vitest.workers.config.ts",
     "test:e2e": "playwright test",

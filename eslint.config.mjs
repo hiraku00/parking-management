@@ -19,6 +19,21 @@ export default tseslint.config(
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {
+    // Nodeで直接実行するCLIスクリプト（scripts/*.mjs）。Nodeのグローバルを許可し、
+    // `条件 ? pass(...) : warn(...)` の形の文を点検結果の記録に使うため許可する。
+    files: ['scripts/**/*.mjs'],
+    languageOptions: {
+      globals: {
+        console: 'readonly',
+        process: 'readonly',
+        URL: 'readonly',
+        fetch: 'readonly',
+        AbortSignal: 'readonly',
+      },
+    },
+    rules: { '@typescript-eslint/no-unused-expressions': ['error', { allowTernary: true }] },
+  },
+  {
     files: ['**/*.{ts,tsx}'],
     plugins: { react, 'react-hooks': reactHooks },
     languageOptions: {
