@@ -68,6 +68,18 @@ E2E（`e2e/parking.pw.ts`）は、オーナー登録→請求、QRログイン�
 
 D1・Cloudflare Access・Stripeとの連携はローカル開発用のプレースホルダー止まりです（`wrangler.jsonc`）。本番の値は [08-implementation-plan.md](docs/design/08-implementation-plan.md) の Phase 6（本番構築とリリース）で設定します。`.github/workflows/deploy.yml` は `main` へのpushで自動デプロイしますが、`production` Environment に `CLOUDFLARE_API_TOKEN` 等が登録されるまでは各ステップをスキップします。
 
+### セキュリティ点検
+
+[IPA「不正アクセスによる漏えい等の事案を踏まえ、速やかに実施すべき対策等について」（2026-10-09）](https://www.ipa.go.jp/security/security-alert/2026/alert20261009.html)が求める点検のうち、機械的に確認できるものをまとめて実行します。何も書き込まない読み取り専用のスクリプトです（HTTPはGET、D1はSELECT、`gh api` はGETのみ）。
+
+```bash
+npm run security:check                  # 本番URL・本番D1（wrangler にログイン済みであること）
+npm run security:check -- --db local    # D1だけローカルに向ける
+npm run security:check -- --help        # オプション一覧（--days, --skip, --json, --strict など）
+```
+
+外部公開アプリ（管理画面・ポータルの未認証アクセス拒否、機密ファイルの非公開、セキュリティヘッダー）、設定（`DEV_OWNER_EMAIL` が本番で空か等）、アカウントの棚卸し（アーカイブ済み・契約終了済み・ロック中）、監査ログ（想定外のオーナー、深夜の操作、設定・返金・金額不一致）、保有データ、`npm audit`、秘密情報の混入（コードとgit履歴）、GitHub・Cloudflareの鍵やSecretsを確認します。自動で確認できない項目（Access・Stripe・Cloudflareアカウントの管理画面での確認など）は最後に一覧で表示します。FAILがあると終了コード1になります。
+
 ## ライセンス
 
 MIT
